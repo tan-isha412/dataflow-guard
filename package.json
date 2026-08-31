@@ -1,0 +1,22 @@
+{
+  "name": "dataflow-guardian",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-aware data egress security platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:web": "npm run dev --workspace=@dataflow-guardian/web",
+    "dev:api": "npm run dev --workspace=@dataflow-guardian/api",
+    "dev:worker": "npm run dev --workspace=@dataflow-guardian/worker",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

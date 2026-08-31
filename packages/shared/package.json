@@ -1,0 +1,14 @@
+{
+  "name": "@dataflow-guardian/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./detection": "./src/types/detection.js",
+    "./decision": "./src/types/decision.js",
+    "./policy": "./src/types/policy.js",
+    "./destination": "./src/types/destination.js"
+  }
+}

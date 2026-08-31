@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id           String       @id @default(uuid())
+  name         String
+  createdAt    DateTime     @default(now())
+  memberships  Membership[]
+  policies     Policy[]
+  decisions    Decision[]
+  destinations Destination[]
+  approvals    Approval[]
+  auditEvents  AuditEvent[]
+  @@map("organizations")
+}
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String
+  fullName     String
+  createdAt    DateTime     @default(now())
+  memberships  Membership[]
+
+  @@map("users")
+}
+
+model Membership {
+  id             String       @id @default(uuid())
+  role           String
+  user           User         @relation(fields: [userId], references: [id])
+  userId         String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, organizationId])
+  @@map("memberships")
+}
+
+model Policy {
+  id             String   @id @default(uuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  name           String
+  description    String?
+  priority       Int      @default(0)
+  enabled        Boolean  @default(true)
+  conditions     Json
+  action         String
+  createdAt      DateTime @default(now())
+
+  @@map("policies")
+}
+model Decision {
+  id               String       @id @default(uuid())
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  organizationId   String
+  action           String
+  status           String
+  riskScore        Int
+  reason           String
+  matchedPolicyIds Json
+  detections       Json
+  sanitizedContent String?
+  createdAt        DateTime     @default(now())
+  @@map("decisions")
+}
+
+model Destination {
+  id               String       @id @default(uuid())
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  organizationId   String
+  name             String
+  type             String
+  baseUrl          String?
+  status           String       @default("UNAPPROVED")
+  riskLevel        String       @default("MEDIUM")
+  allowedDataTypes Json
+  createdAt        DateTime     @default(now())
+  @@map("destinations")
+}
+
+model Approval {
+  id                String       @id @default(uuid())
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  organizationId    String
+  requestedByUserId String
+  decidedByUserId   String?
+  status            String       @default("PENDING")
+  reason            String
+  detections        Json
+  destinationId     String?
+  createdAt         DateTime     @default(now())
+  decidedAt         DateTime?
+  expiresAt         DateTime
+  @@map("approvals")
+}
+
+model AuditEvent {
+  id             String       @id @default(uuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  actorUserId    String?
+  eventType      String
+  metadata       Json
+  createdAt      DateTime     @default(now())
+  @@map("audit_events")
+}
