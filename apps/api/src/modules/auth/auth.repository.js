@@ -4,8 +4,11 @@ import { prisma } from "../../config/db.js";
 // auth.service.js will call these functions instead of importing
 // `prisma` itself — that way, if you ever swap databases, only this
 // file changes.
+// Includes memberships because loginUser() needs membership.organizationId
+// and membership.role to put into the JWT payload — without this, every
+// login would issue a token with organizationId/role missing.
 export function findUserByEmail(email) {
-  return prisma.user.findUnique({ where: { email } });
+  return prisma.user.findUnique({ where: { email }, include: { memberships: true } });
 }
 
 export function findUserWithMemberships(userId) {

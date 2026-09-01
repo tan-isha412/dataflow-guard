@@ -1,7 +1,7 @@
 import { AppError } from "../../middleware/errorHandler.js";
 import { findUserByEmail, createUserWithOrganization } from "./auth.repository.js";
 import { hashPassword, verifyPassword } from "./password.util.js";
-import { signAccessToken, signRefreshToken } from "./jwt.util.js";
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./jwt.util.js";
 
 export async function registerUser({ email, password, fullName, organizationName }) {
   const existing = await findUserByEmail(email);
@@ -36,6 +36,30 @@ export async function loginUser({ email, password }) {
   // Multi-org membership switching is handled once orgs.service.js exists (Day 4).
   const membership = user.memberships?.[0];
   return issueTokensFor(user, membership);
+}
+
+export function refreshSession({ refreshToken }) {
+  let payload;
+  try {
+    payload = verifyRefreshToken(refreshToken);
+  } catch {
+    throw new AppError("Invalid or expired refresh token", 401, "INVALID_REFRESH_TOKEN");
+  }
+
+  // Re-sign both tokens from the same claims rather than re-reading the
+  // user/membership from the database — the refresh token was itself
+  // issued by this server from a verified membership, so its claims are
+  // already trustworthy for the lifetime of the refresh token.
+  const tokenPayload = {
+    userId: payload.userId,
+    organizationId: payload.organizationId,
+    role: payload.role
+  };
+
+  return {
+    accessToken: signAccessToken(tokenPayload),
+    refreshToken: signRefreshToken(tokenPayload)
+  };
 }
 
 function issueTokensFor(user, membership, organization) {

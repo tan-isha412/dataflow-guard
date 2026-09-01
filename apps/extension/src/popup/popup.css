@@ -48,3 +48,60 @@ h1 {
   color: #b91c1c;
   font-weight: 600;
 }
+
+#loginView,
+#sessionView {
+  padding: 8px 0 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+#loginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#loginForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: #374151;
+}
+
+#loginForm input {
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+}
+
+button {
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #111827;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+#logoutButton {
+  background: #ffffff;
+  color: #b91c1c;
+  border: 1px solid #d1d5db;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.error {
+  margin: 0;
+  font-size: 11px;
+  color: #b91c1c;
+}

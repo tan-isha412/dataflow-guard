@@ -16,4 +16,4 @@ export function resolveHighestPrecedence(actions) {
       PRECEDENCE_ORDER.indexOf(action) > PRECEDENCE_ORDER.indexOf(winner) ? action : winner,
     DECISION_ACTIONS.ALLOW
   );
-}d
+}

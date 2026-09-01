@@ -11,6 +11,37 @@
       <p class="version" id="version"></p>
     </header>
 
+    <section id="loginView" hidden>
+      <form id="loginForm">
+        <label>
+          Email
+          <input type="email" id="email" required autocomplete="username" />
+        </label>
+        <label>
+          Password
+          <input type="password" id="password" required autocomplete="current-password" />
+        </label>
+        <button type="submit" id="loginButton">Log in</button>
+        <p class="error" id="loginError" hidden></p>
+      </form>
+    </section>
+
+    <section id="sessionView" hidden>
+      <div class="status-row">
+        <span class="label">User</span>
+        <span class="value" id="userEmail"></span>
+      </div>
+      <div class="status-row">
+        <span class="label">Organization</span>
+        <span class="value" id="orgName"></span>
+      </div>
+      <div class="status-row">
+        <span class="label">Role</span>
+        <span class="value" id="userRole"></span>
+      </div>
+      <button id="logoutButton" type="button">Log out</button>
+    </section>
+
     <section class="status-row">
       <span class="label">Service worker</span>
       <span class="value" id="status">Checking…</span>
@@ -19,11 +50,6 @@
     <section class="status-row">
       <span class="label">AI site activity</span>
       <span class="value" id="detail">—</span>
-    </section>
-
-    <section class="status-row">
-      <span class="label">Organization</span>
-      <span class="value">Not connected (sign-in coming soon)</span>
     </section>
 
     <script type="module" src="popup.js"></script>

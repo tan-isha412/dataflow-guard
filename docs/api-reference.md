@@ -3,6 +3,7 @@
 ## Auth
 - `POST /auth/register` — create org + user, returns tokens
 - `POST /auth/login` — returns tokens
+- `POST /auth/refresh` — `{refreshToken}` → new `{accessToken, refreshToken}`
 
 ## Inspect
 - `POST /inspect` — `{content}` → `{action, riskScore, detections, sanitizedContent}`
