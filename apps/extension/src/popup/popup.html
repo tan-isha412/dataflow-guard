@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>DataFlow Guardian</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>DataFlow Guardian</h1>
+      <p class="version" id="version"></p>
+    </header>
+
+    <section class="status-row">
+      <span class="label">Service worker</span>
+      <span class="value" id="status">Checking…</span>
+    </section>
+
+    <section class="status-row">
+      <span class="label">AI site activity</span>
+      <span class="value" id="detail">—</span>
+    </section>
+
+    <section class="status-row">
+      <span class="label">Organization</span>
+      <span class="value">Not connected (sign-in coming soon)</span>
+    </section>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

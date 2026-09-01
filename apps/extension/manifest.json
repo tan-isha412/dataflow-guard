@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "DataFlow Guardian",
+  "version": "0.1.0",
+  "description": "Enterprise browser security for external AI websites. Inspects prompts before submission and enforces organizational data policies.",
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "DataFlow Guardian"
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["src/content/content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage"]
+}
