@@ -1,0 +1,21 @@
+name: E2E
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  cypress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install
+      - run: docker-compose up -d
+      - run: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+      - run: npm run dev:api &
+      - run: npm run dev:web &
+      - run: npx wait-on http://localhost:5173 http://localhost:5000/health
+      - uses: cypress-io/github-action@v6
+        with:
+          working-directory: apps/web
