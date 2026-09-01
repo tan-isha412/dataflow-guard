@@ -1,11 +1,16 @@
 {
   "name": "@dataflow-guardian/extension",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Browser extension enforcement point for DataFlow Guardian",
   "scripts": {
     "build": "node scripts/build.js",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@dataflow-guardian/shared": "*",
+    "vitest": "^2.1.1"
   }
 }

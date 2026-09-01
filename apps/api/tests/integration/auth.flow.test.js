@@ -27,4 +27,4 @@ describe("Auth flow", () => {
     const res = await request(app).post("/api/v1/auth/login").send({ email, password: "wrongpassword" });
     expect(res.status).toBe(401);
   });
-});s
+});

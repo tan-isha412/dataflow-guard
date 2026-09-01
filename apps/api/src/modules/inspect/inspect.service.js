@@ -3,8 +3,8 @@ import { calculateRiskScore } from "../risk/risk.service.js";
 import { listPolicies } from "../policy/policy.service.js";
 import { makeDecision } from "../decision/decision.service.js";
 import { createDecisionRecord } from "../decision/decision.repository.js";
-import { logger } from "../../utils/logger.js";
-import { truncateForAudit } from "../../utils/crypto.js";
+import { logger } from "../../../utils/logger.js";
+import { truncateForAudit } from "../../../utils/crypto.js";
 
 // This is the ENTIRE pipeline in one place, in the correct order:
 // detect → score risk → fetch rules → decide → persist → log.
