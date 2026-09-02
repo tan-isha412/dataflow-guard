@@ -8,8 +8,10 @@ describe("defineAdapter (contract validation)", () => {
     getDestination: () => ({}),
     isChatPage: () => true,
     locatePromptInput: () => null,
+    getCurrentPromptText: () => "",
     onSubmitAttempt: () => () => {},
-    setPromptText: () => false
+    setPromptText: () => false,
+    submitApproved: () => false
   };
 
   it("accepts a config implementing the full contract", () => {

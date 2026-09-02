@@ -17,5 +17,23 @@ export const MESSAGE_TYPES = Object.freeze({
   AUTH_LOGOUT_RESULT: "AUTH_LOGOUT_RESULT",
   AUTH_GET_SESSION: "AUTH_GET_SESSION",
   AUTH_SESSION_RESPONSE: "AUTH_SESSION_RESPONSE",
+  PROMPT_SUBMISSION: "PROMPT_SUBMISSION",
+  PROMPT_SUBMISSION_RESULT: "PROMPT_SUBMISSION_RESULT",
   ERROR: "ERROR"
+});
+
+/**
+ * Outcomes a PROMPT_SUBMISSION_RESULT payload can carry in its
+ * `outcome` field. "DECISION" means a real decision object (ALLOW/
+ * REDACT/BLOCK/REQUIRE_APPROVAL) came back from the backend — every
+ * other outcome means the backend was never reached or couldn't be
+ * trusted, and the extension must fail closed (never submit).
+ */
+export const SUBMISSION_OUTCOMES = Object.freeze({
+  DECISION: "DECISION",
+  AUTH_REQUIRED: "AUTH_REQUIRED",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  GUARDIAN_UNAVAILABLE: "GUARDIAN_UNAVAILABLE",
+  MALFORMED_DECISION: "MALFORMED_DECISION",
+  INVALID_REQUEST: "INVALID_REQUEST"
 });
