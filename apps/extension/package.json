@@ -1,6 +1,6 @@
 {
   "name": "@dataflow-guardian/extension",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Browser extension enforcement point for DataFlow Guardian",
@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@dataflow-guardian/shared": "*",
+    "happy-dom": "^15.11.6",
     "vitest": "^2.1.1"
   }
 }

@@ -2,6 +2,7 @@ import { MESSAGE_TYPES } from "../shared/messageTypes.js";
 import { initializeExtensionState, getExtensionState, patchExtensionState } from "../shared/storage.js";
 import * as authService from "./auth/authService.js";
 import { ApiError } from "./auth/apiClient.js";
+import { handlePromptSubmission } from "./inspection/inspectionHandler.js";
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   await initializeExtensionState();
@@ -73,6 +74,13 @@ async function handleMessage(message, sender) {
     case MESSAGE_TYPES.AUTH_GET_SESSION: {
       const session = await authService.getSession();
       return { type: MESSAGE_TYPES.AUTH_SESSION_RESPONSE, payload: session };
+    }
+
+    case MESSAGE_TYPES.PROMPT_SUBMISSION: {
+      // Deliberately no console.log of message.payload anywhere in this
+      // path (here or inside inspectionHandler.js) — it contains the raw
+      // prompt text, which must never be written to logs.
+      return await handlePromptSubmission(message.payload);
     }
 
     default:

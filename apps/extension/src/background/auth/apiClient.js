@@ -9,21 +9,32 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = "GET", body, accessToken } = {}) {
+const DEFAULT_TIMEOUT_MS = 15000;
+
+async function request(path, { method = "GET", body, accessToken, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   let response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal
     });
-  } catch {
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new ApiError("DataFlow Guardian did not respond in time", 0, "TIMEOUT");
+    }
     throw new ApiError("Could not reach the DataFlow Guardian server", 0, "NETWORK_ERROR");
+  } finally {
+    clearTimeout(timeout);
   }
 
   const data = await response.json().catch(() => ({}));

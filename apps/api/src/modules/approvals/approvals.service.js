@@ -18,8 +18,7 @@ const VALID_TRANSITIONS = {
 
 export async function createApprovalRequest({ organizationId, requestedByUserId, reason, detections, destinationId }) {
   const expiresAt = new Date(Date.now() + APPROVAL_EXPIRY_HOURS * 60 * 60 * 1000);
-  await scheduleApprovalExpiry(approval.id, APPROVAL_EXPIRY_MS);
-  return approvalsRepository.createApprovalRequest({
+  const approval = await approvalsRepository.createApprovalRequest({
     organizationId,
     requestedByUserId,
     status: "PENDING",
@@ -28,6 +27,8 @@ export async function createApprovalRequest({ organizationId, requestedByUserId,
     destinationId,
     expiresAt
   });
+  await scheduleApprovalExpiry(approval.id, APPROVAL_EXPIRY_MS);
+  return approval;
 }
 
 export async function listApprovals(organizationId, filters) {

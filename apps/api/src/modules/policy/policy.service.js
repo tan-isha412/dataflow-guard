@@ -6,9 +6,9 @@ export function listPolicies(organizationId) {
 }
 
 export async function createPolicy(organizationId, input) {
-  const r=policyRepository.createPolicy({ ...input, organizationId });
+  const policy = await policyRepository.createPolicy({ ...input, organizationId });
   await emitAuditEvent({ organizationId, actorUserId: /* pass this in from the route */ undefined, eventType: "POLICY_CREATED", metadata: { policyId: policy.id } });
-  return r;
+  return policy;
 }
 
 export async function updatePolicy(organizationId, policyId, input) {

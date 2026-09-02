@@ -6,7 +6,8 @@
 - `POST /auth/refresh` — `{refreshToken}` → new `{accessToken, refreshToken}`
 
 ## Inspect
-- `POST /inspect` — `{content}` → `{action, riskScore, detections, sanitizedContent}`
+- `POST /inspect` — `{content, destinationId?}` → `{action, status, riskScore, reason, matchedPolicyIds, detections, sanitizedContent, approvalRequestId}`.
+  `destinationId` is a free-form tag (e.g. `"chatgpt"` from the browser extension), not a foreign key — it's threaded through to the approval record when `action` is `REQUIRE_APPROVAL`. `organizationId` always comes from the authenticated token, never from the request body.
 
 ## Policy
 - `GET /policy`, `POST /policy`, `PATCH /policy/:id`, `DELETE /policy/:id`
