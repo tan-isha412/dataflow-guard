@@ -4,7 +4,7 @@ import { asyncHandler } from "../../middleware/errorHandler.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { validate } from "../../middleware/validate.js";
-import { getOrganization, listMembers, renameOrganization } from "./orgs.service.js";
+import { getOrganization, listMembers, renameOrganization, updatePrivacySettings } from "./orgs.service.js";
 import { inviteMember, changeMemberRole } from "./membership.service.js";
 
 const router = Router();
@@ -30,6 +30,16 @@ router.patch(
   validate(z.object({ name: z.string().min(1) })),
   asyncHandler(async (req, res) => {
     const org = await renameOrganization(req.auth.organizationId, req.body.name);
+    res.json(org);
+  })
+);
+
+router.patch(
+  "/me/privacy-settings",
+  requirePermission("org:manage"),
+  validate(z.object({ auditRetentionDays: z.number().int().min(1).max(3650).nullable() })),
+  asyncHandler(async (req, res) => {
+    const org = await updatePrivacySettings(req.auth.organizationId, req.body);
     res.json(org);
   })
 );

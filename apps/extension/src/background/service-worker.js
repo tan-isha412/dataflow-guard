@@ -3,6 +3,7 @@ import { initializeExtensionState, getExtensionState, patchExtensionState } from
 import * as authService from "./auth/authService.js";
 import { ApiError } from "./auth/apiClient.js";
 import { handlePromptSubmission } from "./inspection/inspectionHandler.js";
+import { checkApprovalStatus } from "./inspection/approvalStatus.js";
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   await initializeExtensionState();
@@ -81,6 +82,15 @@ async function handleMessage(message, sender) {
       // path (here or inside inspectionHandler.js) — it contains the raw
       // prompt text, which must never be written to logs.
       return await handlePromptSubmission(message.payload);
+    }
+
+    case MESSAGE_TYPES.CHECK_APPROVAL_STATUS: {
+      try {
+        const result = await checkApprovalStatus(message.payload?.approvalRequestId);
+        return { type: MESSAGE_TYPES.APPROVAL_STATUS_RESULT, payload: { success: true, ...result } };
+      } catch (error) {
+        return { type: MESSAGE_TYPES.APPROVAL_STATUS_RESULT, payload: { success: false, error: toSafeError(error) } };
+      }
     }
 
     default:

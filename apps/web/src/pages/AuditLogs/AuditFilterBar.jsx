@@ -1,5 +1,14 @@
 export function AuditFilterBar({ eventType, onEventTypeChange }) {
-  const EVENT_TYPES = ["", "POLICY_CREATED", "APPROVAL_GRANTED", "APPROVAL_REJECTED", "INSPECTION_PERFORMED"];
+  const EVENT_TYPES = [
+    "",
+    "INSPECTION_ALLOW",
+    "INSPECTION_REDACT",
+    "INSPECTION_BLOCK",
+    "INSPECTION_REQUIRE_APPROVAL",
+    "APPROVAL_GRANTED",
+    "APPROVAL_REJECTED",
+    "POLICY_CREATED"
+  ];
 
   return (
     <select value={eventType} onChange={(e) => onEventTypeChange(e.target.value)}>

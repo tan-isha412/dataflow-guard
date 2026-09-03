@@ -19,6 +19,8 @@ export const MESSAGE_TYPES = Object.freeze({
   AUTH_SESSION_RESPONSE: "AUTH_SESSION_RESPONSE",
   PROMPT_SUBMISSION: "PROMPT_SUBMISSION",
   PROMPT_SUBMISSION_RESULT: "PROMPT_SUBMISSION_RESULT",
+  CHECK_APPROVAL_STATUS: "CHECK_APPROVAL_STATUS",
+  APPROVAL_STATUS_RESULT: "APPROVAL_STATUS_RESULT",
   ERROR: "ERROR"
 });
 
@@ -28,11 +30,21 @@ export const MESSAGE_TYPES = Object.freeze({
  * REDACT/BLOCK/REQUIRE_APPROVAL) came back from the backend — every
  * other outcome means the backend was never reached or couldn't be
  * trusted, and the extension must fail closed (never submit).
+ *
+ * NETWORK_ERROR/TIMEOUT/SERVER_ERROR/MALFORMED_DECISION/INVALID_REQUEST
+ * are all handled IDENTICALLY from an enforcement standpoint (none of
+ * them ever submits anything) — they're split out only so the UI can
+ * show the user a meaningfully different message per Phase 5's "at
+ * minimum, distinguish..." requirement. GUARDIAN_UNAVAILABLE remains as
+ * the fallback for a genuinely unrecognized failure.
  */
 export const SUBMISSION_OUTCOMES = Object.freeze({
   DECISION: "DECISION",
   AUTH_REQUIRED: "AUTH_REQUIRED",
   UNAUTHORIZED: "UNAUTHORIZED",
+  NETWORK_ERROR: "NETWORK_ERROR",
+  TIMEOUT: "TIMEOUT",
+  SERVER_ERROR: "SERVER_ERROR",
   GUARDIAN_UNAVAILABLE: "GUARDIAN_UNAVAILABLE",
   MALFORMED_DECISION: "MALFORMED_DECISION",
   INVALID_REQUEST: "INVALID_REQUEST"

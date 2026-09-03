@@ -70,7 +70,11 @@ function issueTokensFor(user, membership, organization) {
   };
 
   return {
-    user: { id: user.id, email: user.email, fullName: user.fullName },
+    // `role` here is for the frontend to conditionally render admin-only
+    // controls (a UX nicety, not a security boundary — every protected
+    // route re-derives role from the verified JWT server-side regardless,
+    // see middleware/auth.js + rbac.js).
+    user: { id: user.id, email: user.email, fullName: user.fullName, role: membership?.role },
     organization: organization ? { id: organization.id, name: organization.name } : undefined,
     accessToken: signAccessToken(tokenPayload),
     refreshToken: signRefreshToken(tokenPayload)

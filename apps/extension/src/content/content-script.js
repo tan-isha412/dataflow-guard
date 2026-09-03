@@ -43,22 +43,37 @@
         chrome.runtime.getURL("src/content/interception/promptInterceptor.js")
       );
 
-      // Started once, for the first adapter this content script sees.
-      // The interceptor listens at the document level (capture phase),
-      // so it keeps working across SPA navigation within the same
-      // adapter without needing to be re-created on every route change —
-      // see chatgptAdapter.js's onSubmitAttempt for why that's safe.
-      let interceptorStarted = false;
+      // Started once per adapter identity, and kept running across SPA
+      // navigation WITHIN that same adapter — the interceptor listens at
+      // the document level (capture phase), so it keeps working without
+      // needing to be re-created on every route change (see
+      // chatgptAdapter.js's onSubmitAttempt for why that's safe).
+      //
+      // What it does NOT survive is the adapter identity changing (the
+      // site navigated to, in principle, a different adapter, or away
+      // from any supported site) — stop() is called first so any
+      // in-flight inspection for the OLD page can never be acted on
+      // against whatever is now in the DOM, and its approval-poll timer
+      // and UI panel are torn down instead of leaking.
+      let activeAdapterId = null;
+      let activeInterceptor = null;
 
       function resolveAndReport() {
         const adapter = resolveAdapter(new URL(window.location.href));
+        const nextAdapterId = adapter?.id ?? null;
+
+        if (nextAdapterId !== activeAdapterId) {
+          activeInterceptor?.stop();
+          activeInterceptor = null;
+          activeAdapterId = nextAdapterId;
+        }
+
         if (adapter) {
           console.debug(`[DataFlow Guardian] adapter matched: ${adapter.id}`);
           pingBackground(adapter.getDestination());
 
-          if (!interceptorStarted) {
-            createPromptInterceptor(adapter);
-            interceptorStarted = true;
+          if (!activeInterceptor) {
+            activeInterceptor = createPromptInterceptor(adapter);
           }
         } else {
           console.debug("[DataFlow Guardian] no adapter matched this page");

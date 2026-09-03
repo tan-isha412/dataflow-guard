@@ -11,6 +11,14 @@ model Organization {
   id           String       @id @default(uuid())
   name         String
   createdAt    DateTime     @default(now())
+  // Phase 6 privacy configuration: how long audit events/decisions are
+  // kept before an automatic sweep deletes them (worker/processors/
+  // auditAggregation.processor.js). null = retain indefinitely — an org
+  // has to opt IN to automatic deletion, never the other way around.
+  // Note there is no "retain raw prompt content" toggle here: the system
+  // never stores raw prompt content anywhere (see docs/privacy.md), so a
+  // flag claiming to control that would control nothing real.
+  auditRetentionDays Int?
   memberships  Membership[]
   policies     Policy[]
   decisions    Decision[]

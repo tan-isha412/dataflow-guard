@@ -1,5 +1,13 @@
-const FIELDS = ["DATA_TYPE", "SENSITIVITY", "RISK_SCORE", "DESTINATION_RISK"];
-const OPERATORS = ["EQUALS", "NOT_EQUALS", "IN", "GREATER_THAN", "LESS_THAN"];
+const FIELDS = [
+  "DATA_TYPE",
+  "SENSITIVITY",
+  "RISK_SCORE",
+  "DESTINATION_ID",
+  "DESTINATION_TYPE",
+  "DESTINATION_RISK",
+  "USER_ROLE"
+];
+const OPERATORS = ["EQUALS", "NOT_EQUALS", "IN", "NOT_IN", "GREATER_THAN", "LESS_THAN", "EXISTS"];
 
 // Produces exactly the { field, operator, value } shape the backend's
 // policy.evaluator.js (Day 8) checks — this form is a visual editor

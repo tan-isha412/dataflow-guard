@@ -7,14 +7,14 @@ import { DashboardPage } from "../pages/Dashboard/DashboardPage.jsx";
 import { PlaygroundPage } from "../pages/Playground/PlaygroundPage.jsx";
 import { PoliciesPage } from "../pages/Policies/PoliciesPage.jsx";
 import { DestinationsPage } from "../pages/Destinations/DestinationsPage.jsx";
-import { ApprovalsPage } from "../pages/Approvals/ApprovalsPage.jsx";
+import { ApprovalsPage } from "../pages/Approvals/ApprovalPage.jsx";
 import { AuditLogsPage } from "../pages/AuditLogs/AuditLogsPage.jsx";
+import { AnalyticsPage } from "../pages/Analytics/AnalyticsPage.jsx";
+import { OrganizationPage } from "../pages/Organization/OrganizationPage.jsx";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <RegisterPage /> },
-  { path: "/approvals", element: <ApprovalsPage /> },
-{ path: "/audit", element: <AuditLogsPage /> },
   {
     element: <ProtectedRoute />,
     children: [
@@ -24,8 +24,11 @@ export const router = createBrowserRouter([
           { path: "/", element: <DashboardPage /> },
           { path: "/playground", element: <PlaygroundPage /> },
           { path: "/policies", element: <PoliciesPage /> },
-          { path: "/destinations", element: <DestinationsPage /> }
-          // /approvals and /audit routes added on Day 15 once those pages exist
+          { path: "/destinations", element: <DestinationsPage /> },
+          { path: "/approvals", element: <ApprovalsPage /> },
+          { path: "/audit", element: <AuditLogsPage /> },
+          { path: "/analytics", element: <AnalyticsPage /> },
+          { path: "/organization", element: <OrganizationPage /> }
         ]
       }
     ]

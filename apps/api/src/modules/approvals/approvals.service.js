@@ -35,27 +35,35 @@ export async function listApprovals(organizationId, filters) {
   return approvalsRepository.findApprovalsByOrganization(organizationId, filters);
 }
 
-export async function decideApproval(organizationId, approvalId, decision, decidedByUserId) {
+// Same ownership-check pattern as policy/destination services: an
+// approval id from another org 404s rather than leaking whether it
+// exists — this is what backs the extension's "check on my pending
+// approval" polling (Phase 5 REQUIRE_APPROVAL follow-up).
+export async function getApproval(organizationId, approvalId) {
   const approval = await approvalsRepository.findApprovalById(approvalId);
-
   if (!approval || approval.organizationId !== organizationId) {
     throw new AppError("Approval not found", 404, "APPROVAL_NOT_FOUND");
   }
+  return approval;
+}
+
+export async function decideApproval(organizationId, approvalId, decision, decidedByUserId) {
+  const approval = await getApproval(organizationId, approvalId);
 
   if (!VALID_TRANSITIONS[approval.status].includes(decision)) {
     throw new AppError(`Cannot move from ${approval.status} to ${decision}`, 400, "INVALID_TRANSITION");
   }
 
-  const r=approvalsRepository.updateApproval(approvalId, {
+  const updated = await approvalsRepository.updateApproval(approvalId, {
     status: decision,
     decidedByUserId,
     decidedAt: new Date()
   });
   await emitAuditEvent({
-  organizationId,
-  actorUserId: decidedByUserId,
-  eventType: decision === "APPROVED" ? "APPROVAL_GRANTED" : "APPROVAL_REJECTED",
-  metadata: { approvalId }
-});
-return r;
+    organizationId,
+    actorUserId: decidedByUserId,
+    eventType: decision === "APPROVED" ? "APPROVAL_GRANTED" : "APPROVAL_REJECTED",
+    metadata: { approvalId }
+  });
+  return updated;
 }

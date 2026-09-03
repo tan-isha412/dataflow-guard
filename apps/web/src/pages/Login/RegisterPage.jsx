@@ -24,15 +24,18 @@ export function RegisterPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h1>Create an account</h1>
-      {error && <p role="alert">{error}</p>}
-      <input name="fullName" placeholder="Full name" value={form.fullName} onChange={handleChange} required />
-      <input name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} required />
-      <input name="password" type="password" placeholder="Password" value={form.password} onChange={handleChange} required />
-      <input name="organizationName" placeholder="Organization name" value={form.organizationName} onChange={handleChange} required />
-      <button type="submit">Register</button>
-      <p>Already have an account? <Link to="/login">Log in</Link></p>
-    </form>
+    <div className="auth-page">
+      <form onSubmit={handleSubmit} className="auth-form">
+        <h1>DataFlow Guardian</h1>
+        <h2>Create an account</h2>
+        {error && <p role="alert" className="form-error">{error}</p>}
+        <input name="fullName" placeholder="Full name" value={form.fullName} onChange={handleChange} required />
+        <input name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} required />
+        <input name="password" type="password" placeholder="Password" value={form.password} onChange={handleChange} required />
+        <input name="organizationName" placeholder="Organization name" value={form.organizationName} onChange={handleChange} required />
+        <button type="submit">Register</button>
+        <p>Already have an account? <Link to="/login">Log in</Link></p>
+      </form>
+    </div>
   );
 }

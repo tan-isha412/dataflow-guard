@@ -159,6 +159,61 @@ export function createInterceptionUi(documentRef = globalThis.document) {
         body: "Could not reach DataFlow Guardian, so your prompt was not sent. Please try again."
       }),
 
+    showNetworkError: () =>
+      render({
+        kind: "error",
+        title: "Connection problem",
+        body: "Couldn't connect to DataFlow Guardian. Check your network and try again — your prompt was not sent."
+      }),
+
+    showTimeout: () =>
+      render({
+        kind: "error",
+        title: "Taking too long",
+        body: "DataFlow Guardian didn't respond in time, so your prompt was not sent. Please try again."
+      }),
+
+    showServerError: () =>
+      render({
+        kind: "error",
+        title: "DataFlow Guardian error",
+        body: "DataFlow Guardian hit an unexpected error, so your prompt was not sent. If this keeps happening, contact your organization admin."
+      }),
+
+    showMalformedDecision: () =>
+      render({
+        kind: "error",
+        title: "Unexpected response",
+        body: "DataFlow Guardian returned a response we couldn't understand, so your prompt was not sent. Please try again."
+      }),
+
+    showApprovalPending: () =>
+      render({
+        kind: "approval",
+        title: "Waiting for approval",
+        body: "Still waiting on your organization to review this request."
+      }),
+
+    // Deliberately does not auto-resubmit: the request was approved
+    // against a specific piece of content, and by the time approval
+    // comes back the user may have edited it, navigated away, or closed
+    // the tab. Re-checking on a fresh submit attempt is safer than
+    // silently sending something that was never re-verified.
+    showApprovalApproved: () =>
+      render({
+        kind: "allow",
+        title: "Approved",
+        body: "Your organization approved this request. Submit it again to send it.",
+        autoHideMs: 8000
+      }),
+
+    showApprovalRejected: (decision) =>
+      render({
+        kind: "block",
+        title: "Approval rejected",
+        body: formatApprovalRejectedBody(decision)
+      }),
+
     showStale: () =>
       render({
         kind: "error",
@@ -182,5 +237,11 @@ function formatApprovalBody(decision) {
   const lines = ["This request needs approval before it can be sent."];
   if (decision?.reason) lines.push(decision.reason);
   if (decision?.approvalRequestId) lines.push(`Reference: ${decision.approvalRequestId}`);
+  return lines.join("\n");
+}
+
+function formatApprovalRejectedBody(decision) {
+  const lines = ["This content was not sent."];
+  if (decision?.reason) lines.push(decision.reason);
   return lines.join("\n");
 }
