@@ -33,10 +33,40 @@ function createFakeUi() {
     showRedacted: vi.fn(),
     showBlocked: vi.fn(),
     showApprovalRequired: vi.fn(),
+    showApprovalApproved: vi.fn(),
+    showApprovalRejected: vi.fn(),
     showAuthRequired: vi.fn(),
     showUnauthorized: vi.fn(),
     showUnavailable: vi.fn(),
+    showNetworkError: vi.fn(),
+    showTimeout: vi.fn(),
+    showServerError: vi.fn(),
+    showMalformedDecision: vi.fn(),
     showStale: vi.fn()
+  };
+}
+
+// Stands in for window.setInterval/clearInterval so approval-poll tests
+// can advance "time" by calling tick() directly, deterministically,
+// instead of depending on real timers or vi.useFakeTimers() interacting
+// with the other await-based tests in this file.
+function createFakeIntervalController() {
+  let callback = null;
+  let nextId = 1;
+  return {
+    setInterval: vi.fn((fn) => {
+      callback = fn;
+      return nextId++;
+    }),
+    clearInterval: vi.fn(() => {
+      callback = null;
+    }),
+    async tick() {
+      if (callback) await callback();
+    },
+    get isRunning() {
+      return callback !== null;
+    }
   };
 }
 
@@ -146,6 +176,72 @@ describe("createPromptInterceptor — REQUIRE_APPROVAL", () => {
 
     expect(ui.showApprovalRequired).toHaveBeenCalledWith(decision);
     expect(adapter.submitApproved).not.toHaveBeenCalled();
+  });
+});
+
+describe("createPromptInterceptor — slow backend", () => {
+  it("stays in the inspecting state (no duplicate requests, nothing submitted) until the slow response finally arrives", async () => {
+    const adapter = createFakeAdapter({ currentText: "hello" });
+    const ui = createFakeUi();
+    const sendMessage = vi.fn();
+    const d = deferred();
+    sendMessage.mockReturnValue(d.promise);
+
+    createPromptInterceptor(adapter, { ui, sendMessage, windowRef: { location: { href: "https://chatgpt.com/" } } });
+    adapter._triggerSubmit("hello");
+
+    expect(ui.showInspecting).toHaveBeenCalledTimes(1);
+
+    // simulate a slow backend: several ticks pass with no response yet,
+    // and the user impatiently mashes submit again in the meantime
+    for (let i = 0; i < 5; i++) {
+      await flushMicrotasks();
+      adapter._triggerSubmit("hello");
+    }
+    expect(sendMessage).toHaveBeenCalledTimes(1); // still just the one in-flight request
+    expect(adapter.submitApproved).not.toHaveBeenCalled();
+
+    const submissionId = sendMessage.mock.calls[0][0].payload.submissionId;
+    d.resolve(decisionResult(submissionId, { action: "ALLOW" }));
+    await flushMicrotasks();
+
+    expect(ui.showAllowed).toHaveBeenCalledTimes(1);
+    expect(adapter.submitApproved).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("createPromptInterceptor — repeated submissions", () => {
+  it("re-inspects from scratch on a repeat submission of the same content rather than reusing a cached decision", async () => {
+    const adapter = createFakeAdapter({ currentText: "hello" });
+    const ui = createFakeUi();
+    const sendMessage = vi.fn();
+
+    const d1 = deferred();
+    sendMessage.mockReturnValueOnce(d1.promise);
+    createPromptInterceptor(adapter, { ui, sendMessage, windowRef: { location: { href: "https://chatgpt.com/" } } });
+    adapter._triggerSubmit("hello");
+    const id1 = sendMessage.mock.calls[0][0].payload.submissionId;
+    d1.resolve(decisionResult(id1, { action: "ALLOW" }));
+    await flushMicrotasks();
+    expect(adapter.submitApproved).toHaveBeenCalledTimes(1);
+
+    // Org policy changes between the two submissions (e.g. an admin
+    // just turned on a BLOCK rule) — a cached-decision shortcut here
+    // would incorrectly let this second, identical-looking submission
+    // through as ALLOW again.
+    const d2 = deferred();
+    sendMessage.mockReturnValueOnce(d2.promise);
+    adapter._triggerSubmit("hello");
+
+    expect(sendMessage).toHaveBeenCalledTimes(2); // a genuinely new /inspect request, not a cache hit
+    const id2 = sendMessage.mock.calls[1][0].payload.submissionId;
+    expect(id2).not.toBe(id1);
+
+    d2.resolve(decisionResult(id2, { action: "BLOCK", detections: [{ type: "CREDIT_CARD" }], riskScore: 90 }));
+    await flushMicrotasks();
+
+    expect(ui.showBlocked).toHaveBeenCalledTimes(1);
+    expect(adapter.submitApproved).toHaveBeenCalledTimes(1); // still only the first (ALLOW) submission ever went through
   });
 });
 
@@ -282,6 +378,129 @@ describe("createPromptInterceptor — stop() / navigation cancellation", () => {
     await flushMicrotasks();
 
     expect(adapter.submitApproved).not.toHaveBeenCalled();
+  });
+});
+
+describe("createPromptInterceptor — distinguishable failure states", () => {
+  const cases = [
+    [SUBMISSION_OUTCOMES.NETWORK_ERROR, "showNetworkError"],
+    [SUBMISSION_OUTCOMES.TIMEOUT, "showTimeout"],
+    [SUBMISSION_OUTCOMES.SERVER_ERROR, "showServerError"],
+    [SUBMISSION_OUTCOMES.MALFORMED_DECISION, "showMalformedDecision"],
+    [SUBMISSION_OUTCOMES.UNAUTHORIZED, "showUnauthorized"]
+  ];
+
+  for (const [outcome, uiMethod] of cases) {
+    it(`${outcome} renders a distinct state (${uiMethod}) and never submits`, async () => {
+      const adapter = createFakeAdapter();
+      const ui = createFakeUi();
+      const sendMessage = vi.fn();
+      const d = deferred();
+      sendMessage.mockReturnValue(d.promise);
+      createPromptInterceptor(adapter, { ui, sendMessage, windowRef: { location: { href: "https://chatgpt.com/" } } });
+
+      adapter._triggerSubmit("hello");
+      const submissionId = sendMessage.mock.calls[0][0].payload.submissionId;
+      d.resolve(outcomeResult(submissionId, outcome));
+      await flushMicrotasks();
+
+      expect(ui[uiMethod]).toHaveBeenCalledTimes(1);
+      expect(adapter.submitApproved).not.toHaveBeenCalled();
+    });
+  }
+});
+
+describe("createPromptInterceptor — REQUIRE_APPROVAL follow-up (existing approvals API, polled)", () => {
+  function setupApprovalRequired() {
+    const adapter = createFakeAdapter({ currentText: "share our unreleased roadmap externally" });
+    const ui = createFakeUi();
+    const interval = createFakeIntervalController();
+    const sendMessage = vi.fn();
+    const d = deferred();
+    sendMessage.mockReturnValueOnce(d.promise);
+
+    const interceptor = createPromptInterceptor(adapter, {
+      ui,
+      sendMessage,
+      windowRef: { location: { href: "https://chatgpt.com/" } },
+      setInterval: interval.setInterval,
+      clearInterval: interval.clearInterval
+    });
+
+    adapter._triggerSubmit("share our unreleased roadmap externally");
+    return { adapter, ui, sendMessage, d, interval, interceptor };
+  }
+
+  it("starts polling GET /approvals/:id (via the background) after REQUIRE_APPROVAL and shows approved on APPROVED", async () => {
+    const { adapter, ui, sendMessage, d, interval } = setupApprovalRequired();
+    const submissionId = sendMessage.mock.calls[0][0].payload.submissionId;
+    const decision = { action: "REQUIRE_APPROVAL", approvalRequestId: "appr-1", reason: "needs approval" };
+    d.resolve(decisionResult(submissionId, decision));
+    await flushMicrotasks();
+
+    expect(ui.showApprovalRequired).toHaveBeenCalledWith(decision);
+    expect(interval.isRunning).toBe(true);
+
+    sendMessage.mockResolvedValueOnce({
+      type: MESSAGE_TYPES.APPROVAL_STATUS_RESULT,
+      payload: { success: true, found: true, status: "PENDING", approval: { id: "appr-1", status: "PENDING" } }
+    });
+    await interval.tick();
+    expect(ui.showApprovalApproved).not.toHaveBeenCalled();
+    expect(interval.isRunning).toBe(true); // still pending, keeps polling
+
+    sendMessage.mockResolvedValueOnce({
+      type: MESSAGE_TYPES.APPROVAL_STATUS_RESULT,
+      payload: { success: true, found: true, status: "APPROVED", approval: { id: "appr-1", status: "APPROVED" } }
+    });
+    await interval.tick();
+
+    expect(ui.showApprovalApproved).toHaveBeenCalledTimes(1);
+    expect(interval.isRunning).toBe(false); // stops once resolved
+    // still never auto-resubmits — see ui.js's showApprovalApproved comment
+    expect(adapter.submitApproved).not.toHaveBeenCalled();
+  });
+
+  it("shows the rejected state on REJECTED and stops polling", async () => {
+    const { ui, sendMessage, d, interval } = setupApprovalRequired();
+    const submissionId = sendMessage.mock.calls[0][0].payload.submissionId;
+    d.resolve(decisionResult(submissionId, { action: "REQUIRE_APPROVAL", approvalRequestId: "appr-2" }));
+    await flushMicrotasks();
+
+    sendMessage.mockResolvedValueOnce({
+      type: MESSAGE_TYPES.APPROVAL_STATUS_RESULT,
+      payload: { success: true, found: true, status: "REJECTED", approval: { id: "appr-2", status: "REJECTED", reason: "policy" } }
+    });
+    await interval.tick();
+
+    expect(ui.showApprovalRejected).toHaveBeenCalledWith({ id: "appr-2", status: "REJECTED", reason: "policy" });
+    expect(interval.isRunning).toBe(false);
+  });
+
+  it("stop() cancels the approval poll instead of leaking a timer", async () => {
+    const { sendMessage, d, interval, interceptor } = setupApprovalRequired();
+    const submissionId = sendMessage.mock.calls[0][0].payload.submissionId;
+    d.resolve(decisionResult(submissionId, { action: "REQUIRE_APPROVAL", approvalRequestId: "appr-3" }));
+    await flushMicrotasks();
+
+    expect(interval.isRunning).toBe(true);
+    interceptor.stop();
+    expect(interval.isRunning).toBe(false);
+  });
+
+  it("a fresh submission attempt cancels a previous approval poll (superseded, not stacked)", async () => {
+    const { adapter, sendMessage, d, interval } = setupApprovalRequired();
+    const submissionId = sendMessage.mock.calls[0][0].payload.submissionId;
+    d.resolve(decisionResult(submissionId, { action: "REQUIRE_APPROVAL", approvalRequestId: "appr-4" }));
+    await flushMicrotasks();
+    expect(interval.isRunning).toBe(true);
+
+    // user gives up waiting and submits a new prompt instead
+    const d2 = deferred();
+    sendMessage.mockReturnValueOnce(d2.promise);
+    adapter._triggerSubmit("a completely different prompt");
+
+    expect(interval.isRunning).toBe(false);
   });
 });
 

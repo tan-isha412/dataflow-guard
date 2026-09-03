@@ -10,10 +10,15 @@ export function ApprovalCard({ approval }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["approvals"] })
   });
 
+  const detectedTypes = [...new Set((approval.detections ?? []).map((d) => d.type))];
+
   return (
     <Card title={`Approval — ${approval.status}`}>
       <p>{approval.reason}</p>
+      {approval.destinationId && <p>Destination: {approval.destinationId}</p>}
+      {detectedTypes.length > 0 && <p>Detected: {detectedTypes.join(", ")}</p>}
       <p>Requested: {new Date(approval.createdAt).toLocaleString()}</p>
+      {approval.decidedAt && <p>Decided: {new Date(approval.decidedAt).toLocaleString()}</p>}
       {approval.status === "PENDING" && (
         <div className="approval-actions">
           <Button onClick={() => mutation.mutate("APPROVED")} disabled={mutation.isPending}>Approve</Button>

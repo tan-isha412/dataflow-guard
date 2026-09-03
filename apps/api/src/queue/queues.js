@@ -13,3 +13,15 @@ export const auditAggregationQueue = new Queue("audit-aggregation", { connection
 export async function scheduleApprovalExpiry(approvalId, delayMs) {
   await approvalExpiryQueue.add("expire", { approvalId }, { delay: delayMs });
 }
+
+// Registers (or re-registers, idempotently — BullMQ keys a repeatable
+// job by name+pattern) the daily retention sweep. jobId pins it to one
+// logical repeatable job so restarting the API doesn't stack up
+// duplicates. Safe to call on every API startup.
+export async function scheduleAuditRetentionSweep() {
+  await auditAggregationQueue.add(
+    "retention-sweep",
+    {},
+    { repeat: { every: 24 * 60 * 60 * 1000 }, jobId: "audit-retention-sweep" }
+  );
+}

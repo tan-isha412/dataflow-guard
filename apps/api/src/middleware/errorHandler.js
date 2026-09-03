@@ -16,13 +16,17 @@ export function errorHandler(err, req, res, next) {
   const code = err.code ?? "INTERNAL_ERROR";
 
   if (statusCode === 500) {
-    console.error(err);
+    // Log the error object itself (name/message/stack), never req.body —
+    // an AppError never carries prompt content, but a raw thrown value
+    // from application code might, so this stays deliberately narrow.
+    console.error(`[${req.id}]`, err);
   }
 
   res.status(statusCode).json({
     error: {
       code,
-      message: err.message ?? "Something went wrong"
+      message: err.message ?? "Something went wrong",
+      requestId: req.id
     }
   });
 }

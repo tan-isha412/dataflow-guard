@@ -26,9 +26,23 @@ export async function handlePromptSubmission(payload) {
   }
 
   try {
+    // Data minimization (Phase 6): only what the backend actually uses
+    // for detection/policy/risk goes over the wire. `source`, the page
+    // URL, and the adapter id that promptInterceptor.js attaches as
+    // `applicationContext` are deliberately NOT forwarded here — the
+    // backend derives who/organization from the auth token, not from
+    // anything the content script claims, so they'd never be more than
+    // unused telemetry sitting in a request body. destinationType/
+    // displayName ARE forwarded: they're what lets the backend apply
+    // destination-aware policy/risk (Phase 7) instead of only a bare id.
     const decision = await authenticatedRequest("/inspect", {
       method: "POST",
-      body: { content: payload.content, destinationId: payload.destination?.destinationId }
+      body: {
+        content: payload.content,
+        destinationId: payload.destination?.destinationId,
+        destinationType: payload.destination?.destinationType,
+        displayName: payload.destination?.displayName
+      }
     });
 
     if (!isValidDecision(decision)) {

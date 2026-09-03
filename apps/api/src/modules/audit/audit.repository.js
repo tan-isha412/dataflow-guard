@@ -29,3 +29,30 @@ export function averageRiskScore(organizationId) {
     _avg: { riskScore: true }
   });
 }
+
+export function countHighRiskDecisions(organizationId, threshold = 70) {
+  return prisma.decision.count({ where: { organizationId, riskScore: { gte: threshold } } });
+}
+
+// Bounded window, not "ever" — an org open for years shouldn't need an
+// unbounded table scan just to answer "how many people used this
+// recently." Same pragmatic JS-side aggregation approach as
+// analytics.repository.js's detectionCountsByType.
+export async function countActiveUsers(organizationId, sinceDate) {
+  const rows = await prisma.auditEvent.findMany({
+    where: { organizationId, actorUserId: { not: null }, createdAt: { gte: sinceDate } },
+    select: { actorUserId: true },
+    distinct: ["actorUserId"]
+  });
+  return rows.length;
+}
+
+export async function listDestinationsSeen(organizationId, sinceDate, limit = 500) {
+  const rows = await prisma.auditEvent.findMany({
+    where: { organizationId, eventType: { startsWith: "INSPECTION_" }, createdAt: { gte: sinceDate } },
+    select: { metadata: true },
+    orderBy: { createdAt: "desc" },
+    take: limit
+  });
+  return [...new Set(rows.map((r) => r.metadata?.destinationId).filter(Boolean))];
+}

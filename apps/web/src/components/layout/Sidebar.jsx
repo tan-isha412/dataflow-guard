@@ -2,11 +2,13 @@ import { NavLink } from "react-router-dom";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard" },
+  { to: "/analytics", label: "Analytics" },
   { to: "/playground", label: "Playground" },
   { to: "/policies", label: "Policies" },
   { to: "/destinations", label: "Destinations" },
   { to: "/approvals", label: "Approvals" },
-  { to: "/audit", label: "Audit Logs" }
+  { to: "/audit", label: "Audit Logs" },
+  { to: "/organization", label: "Organization" }
 ];
 
 export function Sidebar() {

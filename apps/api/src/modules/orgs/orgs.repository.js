@@ -14,3 +14,7 @@ export function findOrganizationMembers(organizationId) {
 export function updateOrganizationName(id, name) {
   return prisma.organization.update({ where: { id }, data: { name } });
 }
+
+export function updateOrganizationSettings(id, data) {
+  return prisma.organization.update({ where: { id }, data });
+}

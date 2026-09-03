@@ -67,12 +67,12 @@ describe("handlePromptSubmission", () => {
     expect(response.payload.outcome).toBe(SUBMISSION_OUTCOMES.MALFORMED_DECISION);
   });
 
-  it("returns GUARDIAN_UNAVAILABLE on a network error, never a DECISION", async () => {
+  it("returns a fail-closed outcome (never DECISION) on a network error", async () => {
     getSession.mockResolvedValue(AUTHENTICATED_SESSION);
     authenticatedRequest.mockRejectedValue(new ApiError("down", 0, "NETWORK_ERROR"));
 
     const response = await handlePromptSubmission({ submissionId: "s1", content: "hi" });
-    expect(response.payload.outcome).toBe(SUBMISSION_OUTCOMES.GUARDIAN_UNAVAILABLE);
+    expect(response.payload.outcome).toBe(SUBMISSION_OUTCOMES.NETWORK_ERROR);
   });
 
   it("returns AUTH_REQUIRED when the access token is expired and refresh also fails", async () => {

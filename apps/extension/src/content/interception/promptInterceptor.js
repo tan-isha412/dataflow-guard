@@ -15,17 +15,33 @@ import { createInterceptionUi } from "./ui.js";
  * decision logic (messaging, UI, window/crypto) — the production caller
  * (content-script.js) uses the defaults, which are the real things.
  */
+const APPROVAL_POLL_INTERVAL_MS = 5000;
+const APPROVAL_POLL_MAX_ATTEMPTS = 24; // ~2 minutes — a bounded check-in, not a real-time subscription
+
 export function createPromptInterceptor(adapter, deps = {}) {
   const ui = deps.ui ?? createInterceptionUi();
   const sendMessage = deps.sendMessage ?? sendToBackground;
   const windowRef = deps.windowRef ?? window;
   const generateId = deps.generateId ?? (() => crypto.randomUUID());
+  // Deliberately NOT windowRef.setInterval — windowRef here is only ever
+  // a location-bearing stand-in (see buildSubmission), not a full window,
+  // so timers use the platform global directly.
+  const setIntervalFn = deps.setInterval ?? globalThis.setInterval.bind(globalThis);
+  const clearIntervalFn = deps.clearInterval ?? globalThis.clearInterval.bind(globalThis);
 
   // Non-null while an inspection request is outstanding. Anything that
   // resolves for a DIFFERENT id than this is stale (superseded by a
   // reset — see stop()/navigation handling in content-script.js) and is
   // discarded rather than acted on.
   let activeSubmissionId = null;
+  let approvalPollTimer = null;
+
+  function stopApprovalPoll() {
+    if (approvalPollTimer) {
+      clearIntervalFn(approvalPollTimer);
+      approvalPollTimer = null;
+    }
+  }
 
   function buildSubmission(content) {
     const destination = adapter.getDestination();
@@ -45,6 +61,10 @@ export function createPromptInterceptor(adapter, deps = {}) {
       // not by firing a second /inspect request.
       return;
     }
+
+    // A fresh attempt supersedes any approval we were still waiting on
+    // for a previous (now-irrelevant) prompt.
+    stopApprovalPoll();
 
     const submissionId = generateId();
     activeSubmissionId = submissionId;
@@ -92,8 +112,18 @@ export function createPromptInterceptor(adapter, deps = {}) {
         return ui.showAuthRequired();
       case SUBMISSION_OUTCOMES.UNAUTHORIZED:
         return ui.showUnauthorized();
-      case SUBMISSION_OUTCOMES.INVALID_REQUEST:
+      // Each of these still results in NOTHING being submitted — same
+      // fail-closed guarantee as the default case — they just get a
+      // more specific message per Phase 5's "distinguish..." requirement.
+      case SUBMISSION_OUTCOMES.NETWORK_ERROR:
+        return ui.showNetworkError();
+      case SUBMISSION_OUTCOMES.TIMEOUT:
+        return ui.showTimeout();
+      case SUBMISSION_OUTCOMES.SERVER_ERROR:
+        return ui.showServerError();
       case SUBMISSION_OUTCOMES.MALFORMED_DECISION:
+        return ui.showMalformedDecision();
+      case SUBMISSION_OUTCOMES.INVALID_REQUEST:
       case SUBMISSION_OUTCOMES.GUARDIAN_UNAVAILABLE:
       default:
         return ui.showUnavailable();
@@ -124,6 +154,9 @@ export function createPromptInterceptor(adapter, deps = {}) {
         return;
       case "REQUIRE_APPROVAL":
         ui.showApprovalRequired(decision);
+        if (decision.approvalRequestId) {
+          startApprovalPoll(decision.approvalRequestId);
+        }
         return;
       default:
         // isValidDecision() on the background side should make this
@@ -132,11 +165,53 @@ export function createPromptInterceptor(adapter, deps = {}) {
     }
   }
 
+  // Bounded polling against the EXISTING approvals API (GET /approvals/:id)
+  // — not a new notification system, just reading the one that's already
+  // there. Stops on: a decision, hitting the attempt cap, or being
+  // superseded by stopApprovalPoll() (a new submission, or stop()).
+  function startApprovalPoll(approvalRequestId) {
+    stopApprovalPoll();
+    let attempts = 0;
+
+    approvalPollTimer = setIntervalFn(async () => {
+      attempts += 1;
+      if (attempts > APPROVAL_POLL_MAX_ATTEMPTS) {
+        stopApprovalPoll();
+        return;
+      }
+
+      let response;
+      try {
+        response = await sendMessage({
+          type: MESSAGE_TYPES.CHECK_APPROVAL_STATUS,
+          payload: { approvalRequestId }
+        });
+      } catch {
+        return; // transient failure — try again on the next tick
+      }
+
+      const result = response?.payload;
+      if (!result?.success || !result.found) {
+        return;
+      }
+
+      if (result.status === "APPROVED") {
+        stopApprovalPoll();
+        ui.showApprovalApproved();
+      } else if (result.status === "REJECTED") {
+        stopApprovalPoll();
+        ui.showApprovalRejected(result.approval);
+      }
+      // PENDING / EXPIRED-not-yet-processed: keep polling.
+    }, APPROVAL_POLL_INTERVAL_MS);
+  }
+
   const unsubscribeAdapter = adapter.onSubmitAttempt(handleAttempt);
 
   return {
     stop() {
       activeSubmissionId = null; // any in-flight response becomes stale and is ignored
+      stopApprovalPoll();
       ui.hide();
       unsubscribeAdapter();
     }

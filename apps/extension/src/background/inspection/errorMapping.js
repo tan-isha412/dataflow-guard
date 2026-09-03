@@ -22,9 +22,14 @@ export function mapErrorToOutcome(error) {
     case "FORBIDDEN":
       return SUBMISSION_OUTCOMES.UNAUTHORIZED;
     case "NETWORK_ERROR":
+      return SUBMISSION_OUTCOMES.NETWORK_ERROR;
     case "TIMEOUT":
-      return SUBMISSION_OUTCOMES.GUARDIAN_UNAVAILABLE;
+      return SUBMISSION_OUTCOMES.TIMEOUT;
     default:
-      return SUBMISSION_OUTCOMES.GUARDIAN_UNAVAILABLE;
+      // A response DID come back (apiClient.js only throws NETWORK_ERROR/
+      // TIMEOUT for transport-level failures), so error.status is a real
+      // HTTP status here — 5xx is the server's own fault, anything else
+      // unrecognized falls back to the generic unavailable state.
+      return error.status >= 500 ? SUBMISSION_OUTCOMES.SERVER_ERROR : SUBMISSION_OUTCOMES.GUARDIAN_UNAVAILABLE;
   }
 }

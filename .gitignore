@@ -46,4 +46,4 @@ temp/
 
 # Environment-specific infrastructure files
 terraform.tfstate
-terraform.tfstate.*
+terraform.tfstate.*dump.rdb

@@ -14,6 +14,14 @@ router.get("/", asyncHandler(async (req, res) => {
   res.json(approvals);
 }));
 
+// Backs both the admin approvals UI (poll/refresh a single row) and the
+// extension's "has my pending request been decided yet?" check — see
+// background/inspection/approvalStatus.js.
+router.get("/:id", asyncHandler(async (req, res) => {
+  const approval = await approvalsService.getApproval(req.auth.organizationId, req.params.id);
+  res.json(approval);
+}));
+
 router.patch(
   "/:id/decide",
   requirePermission("approvals:decide"),
