@@ -64,6 +64,14 @@ model Policy {
   action         String
   createdAt      DateTime @default(now())
 
+  // Every real query in policy.repository.js filters on organizationId
+  // (org isolation is enforced at the query level, not just checked
+  // after fetching) — without this index, that WHERE clause is a full
+  // table scan once an org's policy table grows past a trivial size.
+  // Prisma does NOT create an index on a plain foreign-key scalar column
+  // automatically (only @id/@unique get one) — confirmed missing via
+  // `\d policies` against the live schema before this change.
+  @@index([organizationId])
   @@map("policies")
 }
 model Decision {
@@ -78,6 +86,15 @@ model Decision {
   detections       Json
   sanitizedContent String?
   createdAt        DateTime     @default(now())
+
+  // audit.repository.js and analytics.repository.js both filter by
+  // organizationId and then order/aggregate by createdAt (dashboard
+  // history, decisionsGroupedByDay, countDecisionsByOrganization) — a
+  // composite index serves both the equality filter and the range/sort
+  // in one pass, and a plain organizationId index would still be
+  // needed as its prefix for the count()/aggregate() calls that don't
+  // touch createdAt at all.
+  @@index([organizationId, createdAt])
   @@map("decisions")
 }
 
@@ -92,6 +109,8 @@ model Destination {
   riskLevel        String       @default("MEDIUM")
   allowedDataTypes Json
   createdAt        DateTime     @default(now())
+
+  @@index([organizationId])
   @@map("destinations")
 }
 
@@ -108,6 +127,13 @@ model Approval {
   createdAt         DateTime     @default(now())
   decidedAt         DateTime?
   expiresAt         DateTime
+
+  // findApprovalsByOrganization filters organizationId + optional
+  // status, ordered by createdAt desc (the approvals dashboard/queue) —
+  // status is low-cardinality (4 values) so it's not its own index, but
+  // pairing it after organizationId still lets Postgres narrow within
+  // one org's rows before the sort.
+  @@index([organizationId, status])
   @@map("approvals")
 }
 
@@ -119,5 +145,13 @@ model AuditEvent {
   eventType      String
   metadata       Json
   createdAt      DateTime     @default(now())
+
+  // Every audit query (findAuditEventsByOrganization, countActiveUsers,
+  // listDestinationsSeen) filters organizationId + a createdAt range,
+  // then orders by createdAt — this is the table Phase 6's automatic
+  // retention sweep also scans by organizationId + createdAt, and the
+  // one most likely to grow large in a real deployment (an event per
+  // inspection), so it's the highest-value index in this schema.
+  @@index([organizationId, createdAt])
   @@map("audit_events")
 }
