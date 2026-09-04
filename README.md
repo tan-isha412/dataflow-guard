@@ -17,6 +17,15 @@ PostgreSQL via Prisma, Redis + BullMQ (rate limiting, approval expiry,
 audit retention sweep), a Manifest V3 browser extension (no bundler —
 plain ES modules), Terraform (AWS infrastructure).
 
+## Supported AI websites
+
+`chatgpt.com` and `chat.openai.com` only, via one adapter
+(`apps/extension/src/content/adapters/chatgptAdapter.js`). The
+interception mechanism itself (`promptInterceptor.js`) is site-agnostic
+— adding a new site means writing one more adapter (the DOM-specific
+part) and adding its origin to `manifest.json`'s `content_scripts` and
+`host_permissions`, not touching the security pipeline.
+
 ## Repository layout
 
 ```
@@ -28,8 +37,17 @@ apps/
   extension/   Manifest V3 browser extension (the enforcement point)
 packages/
   shared/      Types/constants shared by every app above
-infra/aws/     Terraform + ECS task definitions
-docs/          deployment.md, api-reference.md, privacy.md, risk-scoring.md
+infra/aws/     Terraform + ECS task definitions (never applied to a real
+               AWS account in this project — see docs/deployment.md)
+docs/
+  architecture.md    full pipeline, extension internals, AWS design
+  security.md        auth/RBAC/org-isolation/dependency-audit/DB review
+  threat-model.md     11 threats, each with mitigation + residual risk
+  testing.md         real test counts, real benchmark/load-test numbers
+  privacy.md         what's collected, what's never logged, retention
+  risk-scoring.md    how risk scores and policy evaluation work
+  api-reference.md   endpoints, policy conflict resolution
+  deployment.md      AWS architecture, exact commands, what's verified
 ```
 
 ## Local development
@@ -66,13 +84,45 @@ npm run test --workspaces
 
 Runs Vitest across `api`, `worker`, and `extension` (unit + integration
 — the API's integration tests need a real Postgres/Redis, see
-`docker compose up -d` above). `apps/web` currently has no automated
-test suite (verified manually — see `docs/deployment.md`'s smoke-test
-section); the extension additionally has two real-Chromium end-to-end
-scripts under `apps/extension/tests/browser/` (`*.manual.cjs`, not
-wired into `npm test` since they need live infrastructure) covering the
-full ALLOW/BLOCK/REDACT/REQUIRE_APPROVAL pipeline including the
-approval-resolution polling flow.
+`docker compose up -d` above). Real, measured results as of the last
+Phase 10 run: **140/140** API tests, **113/113** extension tests,
+**1/1** worker test — see `docs/testing.md` for the full breakdown,
+including two real test-suite bugs found and fixed this phase
+(non-idempotent test data, cross-run rate-limit state) and one honest
+gap (`approvalExpiry.processor.js` has no dedicated test).
+
+`apps/web` has two Cypress specs (`apps/web/cypress/e2e/`) exercising
+real login/register and the sensitive-content Playground flow against
+a real dev server — no mocking. Run headlessly with `npx cypress run`
+inside `apps/web` (`npm run cypress` opens the interactive GUI instead)
+— needs `npm run dev:api` and `npm run dev:web` running first. **Not
+executed in this project's own development sandbox** — Cypress's
+installer needs to download its own browser binary, which that
+sandbox's network policy blocked; see `docs/testing.md` for the exact
+failure and the two real bugs (a missing required support file, an
+undefined custom command) found and fixed by code inspection despite
+that.
+
+The extension additionally has two real-Chromium end-to-end scripts
+under `apps/extension/tests/browser/` (`*.manual.cjs`, not wired into
+`npm test` since they need live infrastructure) covering the full
+ALLOW/BLOCK/REDACT/REQUIRE_APPROVAL pipeline including the
+approval-resolution polling flow, double-click/Enter-key race
+handling, SPA navigation, and fail-closed logout — real results (both
+scripts, all assertions, real measured timings) in `docs/testing.md`.
+
+### Performance & load testing
+
+```bash
+node apps/api/scripts/benchmark.js   # real P50/P95/P99 latency, in-process + full HTTP
+node apps/api/scripts/loadtest.js    # controlled local-only concurrent load test
+```
+
+Both need the API running against a real Postgres/Redis first. Real
+numbers from the last run — full `/inspect` round-trip: p50 2.1ms, p95
+8.9ms; sustained local throughput at 20 concurrent workers: 909.6
+req/s, 100% success. Full results and bottleneck analysis in
+`docs/testing.md`.
 
 ## Production deployment
 
@@ -119,9 +169,51 @@ exact sequence, run against a live local backend, is what
 
 ## Security & privacy
 
+- `docs/security.md` — auth, RBAC, organization isolation, error
+  handling, fail-open/fail-closed behavior, extension permissions
+  review, dependency audit, database review.
+- `docs/threat-model.md` — 11 concrete threats (malicious employee,
+  compromised browser, malicious webpage, stolen token, unauthorized
+  org access, API abuse, policy bypass, prompt leakage, backend/
+  dependency compromise), each with what's actually mitigated and what
+  residual risk remains — including what this system explicitly does
+  **not** protect against.
 - `docs/privacy.md` — what's collected, what's logged (and, more to the
   point, what's deliberately never logged), retention.
 - `docs/risk-scoring.md` — how risk scores and destination-aware policy
   evaluation actually work.
 - `docs/api-reference.md` — endpoints, including how policy conflicts
   are resolved.
+- `docs/testing.md` — the full test strategy plus every real result
+  (test counts, browser E2E, performance benchmark, load test) from
+  the most recent hardening pass.
+
+## Known limitations
+
+Stated plainly rather than glossed over — see `docs/security.md` and
+`docs/threat-model.md` for the full reasoning behind each:
+
+- **No server-side session/token revocation.** Logout clears the
+  extension's locally stored token only; a stolen access token remains
+  valid for up to 15 minutes (its own expiry), a stolen refresh token
+  for up to 7 days, regardless of logout.
+- **One supported AI site** (ChatGPT) — see "Supported AI websites"
+  above.
+- **Detection is pattern-based**, not ML-based content understanding —
+  sensitive data in a form that doesn't match a known pattern won't be
+  caught.
+- **A multi-org user's login has no org selector** — `loginUser()`
+  picks the first membership; real but narrow impact for the current
+  single-org-per-user usage pattern.
+- **One known real dependency vulnerability, not yet fixed**: `qs`
+  (via Express's default query-string parser) has a moderate DoS
+  advisory with a known non-breaking fix that couldn't be safely
+  applied in this project's own development sandbox — see
+  `docs/security.md`'s dependency-audit section for exactly what and
+  why, and the one-line fix once applied elsewhere.
+- **The AWS infrastructure in `infra/aws/` has never been applied to a
+  real AWS account** in this project — see `docs/deployment.md`.
+- **Cypress dashboard E2E specs are unexecuted** in this project's own
+  development sandbox (network-restricted); real bugs found in them
+  were fixed by code inspection but not confirmed by an actual run —
+  see `docs/testing.md`.
