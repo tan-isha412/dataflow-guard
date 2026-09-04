@@ -9,8 +9,14 @@ describe("PATCH /api/v1/orgs/me/privacy-settings", () => {
   let accessToken;
 
   beforeAll(async () => {
+    // A unique email per run — like every other integration test in this
+    // suite — is required because the test DB isn't reset between runs;
+    // a hardcoded email here caused a real bug: the second time this
+    // file ran against an already-populated DB, register() returned 409
+    // (no accessToken), and every assertion below silently got a 401
+    // instead of testing what it claimed to.
     const res = await request(app).post("/api/v1/auth/register").send({
-      email: "privacy-settings-test@example.com",
+      email: `privacy-settings-test-${Date.now()}@example.com`,
       password: "password123",
       fullName: "Privacy Settings Admin",
       organizationName: "Privacy Settings Org"

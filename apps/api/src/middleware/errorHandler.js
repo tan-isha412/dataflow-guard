@@ -13,7 +13,6 @@ export class AppError extends Error {
 // inside an async handler wrapped correctly.
 export function errorHandler(err, req, res, next) {
   const statusCode = err.statusCode ?? 500;
-  const code = err.code ?? "INTERNAL_ERROR";
 
   if (statusCode === 500) {
     // Log the error object itself (name/message/stack), never req.body —
@@ -22,16 +21,21 @@ export function errorHandler(err, req, res, next) {
     console.error(`[${req.id}]`, err);
   }
 
-  // An AppError's message is always something a service author wrote on
-  // purpose for a client to see ("Policy not found", "Invalid or expired
-  // token"). Anything else reaching here is an UNEXPECTED failure — a
-  // bug, a raw Prisma/driver exception, a third-party library throwing —
-  // and its .message can contain exactly the internal detail (a
-  // connection string fragment, a file path, a stack-adjacent hint)
-  // Phase 9's security review calls out as something a production error
-  // response must never leak. Those get a generic message; the real one
-  // still went to the log line above, where a developer can act on it.
-  const message = err instanceof AppError ? err.message : "Something went wrong";
+  // An AppError's message AND code are always something a service
+  // author wrote on purpose for a client to see ("Policy not found" /
+  // "POLICY_NOT_FOUND"). Anything else reaching here is an UNEXPECTED
+  // failure — a bug, a raw Prisma/driver exception, a third-party
+  // library throwing — and either field can contain an internal detail
+  // that shouldn't reach a client: .message might hold a connection
+  // string fragment or file path, and .code might be a driver-specific
+  // code (e.g. Prisma's "P1017") that reveals implementation details a
+  // production error response has no business exposing. Both get
+  // sanitized together for anything that isn't an AppError; the real
+  // error still went to the log line above, where a developer can act
+  // on it.
+  const isAppError = err instanceof AppError;
+  const code = isAppError ? err.code : "INTERNAL_ERROR";
+  const message = isAppError ? err.message : "Something went wrong";
 
   res.status(statusCode).json({
     error: { code, message, requestId: req.id }

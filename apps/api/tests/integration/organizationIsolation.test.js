@@ -21,13 +21,13 @@ describe("Organization isolation across dashboard-relevant endpoints", () => {
 
   beforeAll(async () => {
     const a = await request(app).post("/api/v1/auth/register").send({
-      email: "isolation-org-a@example.com", password: "password123", fullName: "Org A Admin", organizationName: "Org A"
+      email: `isolation-org-a-${Date.now()}@example.com`, password: "password123", fullName: "Org A Admin", organizationName: "Org A"
     });
     tokenA = a.body.accessToken;
     orgAId = a.body.organization.id;
 
     const b = await request(app).post("/api/v1/auth/register").send({
-      email: "isolation-org-b@example.com", password: "password123", fullName: "Org B Admin", organizationName: "Org B"
+      email: `isolation-org-b-${Date.now()}@example.com`, password: "password123", fullName: "Org B Admin", organizationName: "Org B"
     });
     tokenB = b.body.accessToken;
 

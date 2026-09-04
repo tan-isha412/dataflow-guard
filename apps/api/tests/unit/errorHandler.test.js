@@ -43,6 +43,26 @@ describe("errorHandler", () => {
     expect(body.error.requestId).toBe("req-2");
   });
 
+  it("sanitizes a third-party error's OWN .code too, not just a missing one (e.g. Prisma's P1017 on a dropped DB connection)", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = fakeRes();
+    // Real shape: Prisma client errors carry a driver-specific .code
+    // (P1017 = "Server has closed the connection") alongside .message —
+    // a client seeing "P1017" still learns "this uses Prisma" and
+    // "there's a live DB connectivity problem," which is exactly the
+    // kind of internal/database detail a production response shouldn't
+    // volunteer, even though it's shorter than the full message.
+    const err = new Error("Server has closed the connection.");
+    err.code = "P1017";
+
+    errorHandler(err, { id: "req-db" }, res, () => {});
+
+    const [[body]] = res.json.mock.calls;
+    expect(body.error.code).toBe("INTERNAL_ERROR");
+    expect(body.error.code).not.toBe("P1017");
+    expect(body.error.message).toBe("Something went wrong");
+  });
+
   it("still logs the real error server-side, even though the client never sees it", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = fakeRes();
