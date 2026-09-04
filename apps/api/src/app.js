@@ -2,9 +2,11 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { env } from "./config/env.js";
+import { prisma } from "./config/db.js";
+import { redisClient } from "./config/redis.js";
 import { requestId } from "./middleware/requestId.js";
 import { requestLogger } from "./middleware/requestLogger.js";
-import { errorHandler } from "./middleware/errorHandler.js";
+import { errorHandler, asyncHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import orgsRoutes from "./modules/orgs/orgs.routes.js";
 import usersRoutes from "./modules/users/users.routes.js";
@@ -38,9 +40,59 @@ app.use(`${env.API_PREFIX}/users`, usersRoutes);
 app.use(`${env.API_PREFIX}/inspection`, inspectionRoutes);
 app.use(`${env.API_PREFIX}/policy`, policyRoutes);
 
+// Liveness: "is the process up and serving HTTP at all" — no
+// dependency checks on purpose, so a slow/degraded database never
+// makes an orchestrator (ECS, a load balancer) think the process
+// itself needs restarting.
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
+
+// Readiness: "can this instance actually serve real traffic right now."
+// Reports per-dependency up/down only — never a hostname, port,
+// connection string, or driver error message, which is exactly the
+// kind of internal infrastructure detail Phase 9's security review
+// calls out as something a health endpoint must not leak.
+app.get("/health/ready", asyncHandler(async (req, res) => {
+  const [dbUp, redisUp] = await Promise.all([checkDatabase(), checkRedis()]);
+  const ready = dbUp && redisUp;
+  res.status(ready ? 200 : 503).json({
+    status: ready ? "ready" : "not_ready",
+    dependencies: { database: dbUp ? "up" : "down", redis: redisUp ? "up" : "down" }
+  });
+}));
+
+// A short, explicit timeout on both checks — NOT because the DB/redis
+// clients are slow to fail on a plain connection refusal, but because
+// the shared ioredis client is configured with maxRetriesPerRequest:
+// null (see config/redis.js — required so BullMQ jobs keep retrying
+// through a transient Redis outage instead of dying). That same setting
+// means redisClient.ping() can hang indefinitely instead of rejecting
+// while Redis is down, which would otherwise turn a health CHECK into
+// a health check that itself never responds — the opposite of useful
+// during exactly the outage it exists to report.
+const HEALTH_CHECK_TIMEOUT_MS = 2000;
+
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))]);
+}
+
+async function checkDatabase() {
+  try {
+    await withTimeout(prisma.$queryRaw`SELECT 1`, HEALTH_CHECK_TIMEOUT_MS);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function checkRedis() {
+  try {
+    return (await withTimeout(redisClient.ping(), HEALTH_CHECK_TIMEOUT_MS)) === "PONG";
+  } catch {
+    return false;
+  }
+}
 
 app.use(`${env.API_PREFIX}/auth`, authRoutes);
 

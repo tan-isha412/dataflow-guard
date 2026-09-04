@@ -8,14 +8,21 @@
     {
       "name": "worker",
       "image": "<ECR_REPO_URL>/dataflow-guardian-worker:latest",
+      "essential": true,
+      "environment": [
+        { "name": "REDIS_HOST", "value": "<ELASTICACHE_PRIMARY_ENDPOINT>" },
+        { "name": "REDIS_PORT", "value": "6379" },
+        { "name": "REDIS_TLS", "value": "true" }
+      ],
       "secrets": [
-        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:...:DATABASE_URL::" }
+        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:dataflow-guardian/app-secrets:DATABASE_URL::" },
+        { "name": "REDIS_PASSWORD", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:dataflow-guardian/app-secrets:REDIS_AUTH_TOKEN::" }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
           "awslogs-group": "/ecs/dataflow-guardian-worker",
-          "awslogs-region": "us-east-1",
+          "awslogs-region": "<REGION>",
           "awslogs-stream-prefix": "worker"
         }
       }

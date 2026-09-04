@@ -1,0 +1,39 @@
+# Mirrors .gitignore's intent for the Docker build context: nothing
+# here should ever end up inside an image layer. Without this file,
+# `COPY apps/api ./apps/api` (etc.) would happily copy a developer's
+# local .env, node_modules, or .git history straight into the image.
+
+node_modules/
+**/node_modules/
+
+.env
+.env.*
+!.env.example
+
+.git/
+.gitignore
+
+logs/
+*.log
+
+dist/
+build/
+coverage/
+apps/extension/dist/
+apps/web/dist/
+
+.vscode/
+.idea/
+.DS_Store
+
+tmp/
+temp/
+.cache/
+
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+infra/
+docs/
+*.md

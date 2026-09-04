@@ -7,5 +7,8 @@ import { env } from "../config/env.js";
 export const connection = {
   host: env.REDIS_HOST,
   port: env.REDIS_PORT,
-  password: env.REDIS_PASSWORD || undefined
+  password: env.REDIS_PASSWORD || undefined,
+  // See config/redis.js's identical option for the full explanation —
+  // matches infra/aws/elasticache.tf's transit_encryption_enabled.
+  tls: env.REDIS_TLS ? {} : undefined
 };
