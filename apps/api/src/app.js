@@ -6,6 +6,7 @@ import { prisma } from "./config/db.js";
 import { redisClient } from "./config/redis.js";
 import { requestId } from "./middleware/requestId.js";
 import { requestLogger } from "./middleware/requestLogger.js";
+import { rateLimit } from "./middleware/rateLimit.js";
 import { errorHandler, asyncHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import orgsRoutes from "./modules/orgs/orgs.routes.js";
@@ -29,6 +30,31 @@ app.use(cors({ origin: env.ALLOWED_ORIGINS.split(",") }));
 app.use(express.json());
 app.use(requestId);
 app.use(requestLogger);
+
+// Phase 10: this middleware (and its own tests, tests/integration/
+// rateLimit.test.js) existed since Day 16 but was never actually
+// mounted anywhere — every route was unlimited. Two limiters:
+//
+// 1. A strict, IP-keyed limit on login specifically — the one endpoint
+//    where "many failed attempts in a short window" is itself the
+//    attack (credential stuffing / brute force), so it gets a much
+//    lower ceiling than everything else and applies even to an
+//    unauthenticated caller (rateLimit() falls back to req.ip when
+//    there's no req.auth yet, which is always true pre-login).
+// 2. A general limit on every other route, keyed by organizationId
+//    once authenticated (falling back to IP before that, e.g.
+//    /auth/register) — abuse-resistance for the API as a whole, not
+//    specific to any one endpoint.
+//
+// Both fail OPEN if Redis itself is down (see rateLimit.js's own
+// comment) — deliberately: a rate limiter is not the security-critical
+// control in this system (the inspection pipeline's fail-closed
+// behavior is, and that never depends on Redis being reachable for its
+// own database-backed checks), so losing it temporarily during a Redis
+// outage is an acceptable degradation, not a silent bypass of the
+// actual security boundary.
+app.use(`${env.API_PREFIX}/auth/login`, rateLimit({ windowSeconds: 60, max: 10, scope: "auth-login" }));
+app.use(`${env.API_PREFIX}`, rateLimit({ windowSeconds: 60, max: 100, scope: "general" }));
 
 app.use(`${env.API_PREFIX}/approvals`, approvalsRoutes);
 app.use(`${env.API_PREFIX}/audit`, auditRoutes);

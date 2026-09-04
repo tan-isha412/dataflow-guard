@@ -12,7 +12,7 @@ describe("POST /api/v1/inspect", () => {
 
   beforeAll(async () => {
     const res = await request(app).post("/api/v1/auth/register").send({
-      email: "inspect-test@example.com",
+      email: `inspect-test-${Date.now()}@example.com`,
       password: "password123",
       fullName: "Test User",
       organizationName: "Test Org"
@@ -55,7 +55,7 @@ describe("POST /api/v1/inspect", () => {
   // identity from the verified JWT, never from anything the client sends.
   it("ignores a client-supplied organizationId — the decision is scoped to the authenticated org, not the claimed one", async () => {
     const otherOrg = await request(app).post("/api/v1/auth/register").send({
-      email: "inspect-other-org@example.com",
+      email: `inspect-other-org-${Date.now()}@example.com`,
       password: "password123",
       fullName: "Other Org User",
       organizationName: "Other Org"
@@ -91,7 +91,7 @@ describe("POST /api/v1/inspect — destination-aware policy and risk (Phase 7)",
 
   beforeAll(async () => {
     const res = await request(app).post("/api/v1/auth/register").send({
-      email: "inspect-destination-test@example.com",
+      email: `inspect-destination-test-${Date.now()}@example.com`,
       password: "password123",
       fullName: "Destination Test User",
       organizationName: "Destination Test Org"
@@ -164,7 +164,7 @@ describe("POST /api/v1/inspect — destination-aware policy and risk (Phase 7)",
 describe("POST /api/v1/inspect — REQUIRE_APPROVAL creates a real, fetchable Approval", () => {
   it("creates an approval that GET /api/v1/approvals/:id can then read back (extension polling)", async () => {
     const registerRes = await request(app).post("/api/v1/auth/register").send({
-      email: "inspect-approval-fetch@example.com",
+      email: `inspect-approval-fetch-${Date.now()}@example.com`,
       password: "password123",
       fullName: "Approval Fetch User",
       organizationName: "Approval Fetch Org"
@@ -200,7 +200,7 @@ describe("POST /api/v1/inspect — REQUIRE_APPROVAL creates a real, fetchable Ap
     // Another organization can't read it, even by guessing/reusing a
     // valid-looking id.
     const otherOrgRes = await request(app).post("/api/v1/auth/register").send({
-      email: "inspect-approval-fetch-other@example.com",
+      email: `inspect-approval-fetch-other-${Date.now()}@example.com`,
       password: "password123",
       fullName: "Other Org",
       organizationName: "Other Approval Org"
