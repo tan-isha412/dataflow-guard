@@ -6,7 +6,7 @@ site, sends it to the DataFlow Guardian API for a security decision, and
 enforces the result. All security logic (policies, risk scoring,
 decisions) lives in the backend — the extension never re-implements it.
 
-## Status: Phase 1–5 complete
+## Status: Phase 1–9 complete
 
 - **Phase 1** — MV3 skeleton, internal message passing.
 - **Phase 2** — Login/logout against the real backend, session storage,
@@ -17,11 +17,17 @@ decisions) lives in the backend — the extension never re-implements it.
   it reaches the site, extracts the prompt, sends it for inspection.
 - **Phase 5** — Enforces the backend's decision before anything reaches
   ChatGPT: ALLOW submits the original, REDACT submits the sanitized
-  version (never the original), BLOCK/REQUIRE_APPROVAL submit nothing.
-
-Still not implemented: privacy-preserving local inspection, deeper
-policy/risk integration, enterprise dashboard/observability, production
-deployment (Phase 6+).
+  version (never the original), BLOCK submits nothing, and
+  REQUIRE_APPROVAL submits nothing and polls the backend for the human
+  decision (bounded, ~2 minutes) rather than leaving the user stuck.
+- **Phase 6–8** — data minimization (only content + destination sent,
+  never a token or org id, never the page URL/telemetry the backend
+  doesn't use), fail-closed distinguishable error states, destination-
+  aware policy/risk on the backend side.
+- **Phase 9** — production build: `--production` build swaps the
+  hardcoded dev `API_BASE_URL`/`host_permissions` for a real HTTPS API
+  origin, refuses to build against plain HTTP. See "Production build"
+  below.
 
 **Honest limitation:** `chatgptAdapter.js`'s DOM selectors were never
 verified against the live chatgpt.com site — this environment has no
@@ -101,7 +107,30 @@ npm run build --workspace=@dataflow-guardian/extension
 ```
 
 Validates `manifest.json` and stages an unpacked copy into `dist/`. No
-bundler is used — plain ES modules, loaded directly by Chrome.
+bundler is used — plain ES modules, loaded directly by Chrome. This is
+the **dev** build: `dist/` points at `http://localhost:5000`.
+
+### Production build
+
+```bash
+API_BASE_URL=https://api.yourcompany.com/api/v1 \
+  npm run build:production --workspace=@dataflow-guardian/extension
+```
+
+Same output (`dist/`), but `scripts/build.js` rewrites two things in the
+copied files only (never in `src/`):
+
+- `src/shared/config.js`'s `API_BASE_URL` constant
+- `manifest.json`'s `host_permissions` entry, to the new origin
+
+It refuses to build (non-zero exit) if `API_BASE_URL` is missing, still
+the localhost default, or not `https://` — shipping an extension that
+sends auth tokens/inspection content over plain HTTP is a real
+vulnerability, not a configuration nicety. `dist/` is then a clean,
+production-configured, loadable extension — zip it as-is for
+distribution (see "Load into Chrome / Edge" below for the unpacked
+flow; there is no Chrome Web Store publishing step here, by design —
+see the root README's Phase 9 notes).
 
 ## Test
 
@@ -146,6 +175,19 @@ doesn't break interception; and logging out mid-session fails closed
 rather than silently allowing. Prints real measured timings. Not wired
 into `npm test` — it needs live infrastructure the unit tests don't.
 
+```bash
+node apps/extension/tests/browser/approval-resolution.manual.cjs
+```
+
+Same harness, one additional scenario: after REQUIRE_APPROVAL, an admin
+decides the approval out of band (`PATCH /approvals/:id/decide`, exactly
+what the dashboard's Approvals page does) and the test confirms the
+extension's poll picks it up and updates the panel to "Approved" —
+without ever auto-resubmitting the original content.
+
+Both scripts accept `CHROMIUM_EXECUTABLE_PATH`, `API_BASE_URL`, and
+`HEADLESS` as environment variables.
+
 ## Load into Chrome / Edge (developer mode)
 
 1. Run the build (above), or point directly at `apps/extension/`.
@@ -161,13 +203,19 @@ into `npm test` — it needs live infrastructure the unit tests don't.
 ## Permissions
 
 - `storage` — session/profile persistence.
-- `host_permissions: ["http://localhost:5000/*"]` — lets the background
-  service worker call the API without backend CORS changes (MV3 exempts
-  host_permissions-covered origins from CORS for extension-page fetches).
-  Production packaging (HTTPS API origin) is Phase 9 work.
+- `host_permissions` — a single origin, the API's (`http://localhost:5000/*`
+  in `src/`; whatever `API_BASE_URL` a production build was run with in
+  `dist/`). Lets the background service worker call the API without
+  backend CORS changes (MV3 exempts host_permissions-covered origins from
+  CORS for extension-page fetches). Never broader than that one origin.
 - `content_scripts.matches` / `web_accessible_resources.matches` — scoped
   to `chatgpt.com` / `chat.openai.com` only, never `<all_urls>`.
 
 No `externally_connectable` is declared, so only this extension's own
 contexts (popup, content scripts) can message its background — an
-arbitrary webpage cannot.
+arbitrary webpage cannot. `chrome.runtime.onMessage`'s handler
+additionally checks `sender.id === chrome.runtime.id` as defense in
+depth (see `service-worker.js`), and every message payload is
+structurally validated (`submissionValidation.js`) before being acted
+on — the background never trusts a content-script message's shape just
+because it arrived on the internal channel.

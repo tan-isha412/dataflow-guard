@@ -11,6 +11,6 @@ describe("registerUser", () => {
 
     await expect(
       registerUser({ email: "taken@example.com", password: "password123", fullName: "Test", organizationName: "Org" })
-    ).rejects.toThrow("Email already exists");
+    ).rejects.toThrow("An account with this email already exists");
   });
 });

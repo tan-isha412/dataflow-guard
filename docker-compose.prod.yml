@@ -1,38 +1,71 @@
 services:
   api:
-    build: ./apps/api
-    ports: ["5000:5000"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    # No `ports:` mapping to the host — nginx (the `web` service)
+    # proxies /api/* to this service over the internal compose network
+    # (see apps/web/nginx.conf), so the API is never directly reachable
+    # from outside this compose network. This is the self-hosted
+    # equivalent of the AWS path's ALB-only-reachable ECS tasks.
     environment:
       NODE_ENV: production
+      API_PORT: 5000
+      API_PREFIX: /api/v1
       DATABASE_URL: ${DATABASE_URL}
       REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      # Same-origin via nginx's proxy means the dashboard never sends a
+      # cross-origin request in this topology, but the extension always
+      # does (chrome-extension://<id> is its own origin) — its real
+      # origin still has to be allowlisted here explicitly.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
     depends_on: [postgres, redis]
 
   worker:
-    build: ./apps/worker
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     depends_on: [postgres, redis]
 
   web:
-    build: ./apps/web
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
     ports: ["80:80"]
     depends_on: [api]
 
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes: [postgres_data:/var/lib/postgresql/data]
+    # No host port mapping — only `api`/`worker` on the same compose
+    # network can reach Postgres. Use `docker compose exec postgres
+    # psql ...` for local inspection instead of publishing 5432.
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     volumes: [redis_data:/data]
+    # Same reasoning as postgres above — no host port mapping.
 
 volumes:
   postgres_data:

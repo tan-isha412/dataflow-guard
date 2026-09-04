@@ -22,12 +22,19 @@ export function errorHandler(err, req, res, next) {
     console.error(`[${req.id}]`, err);
   }
 
+  // An AppError's message is always something a service author wrote on
+  // purpose for a client to see ("Policy not found", "Invalid or expired
+  // token"). Anything else reaching here is an UNEXPECTED failure — a
+  // bug, a raw Prisma/driver exception, a third-party library throwing —
+  // and its .message can contain exactly the internal detail (a
+  // connection string fragment, a file path, a stack-adjacent hint)
+  // Phase 9's security review calls out as something a production error
+  // response must never leak. Those get a generic message; the real one
+  // still went to the log line above, where a developer can act on it.
+  const message = err instanceof AppError ? err.message : "Something went wrong";
+
   res.status(statusCode).json({
-    error: {
-      code,
-      message: err.message ?? "Something went wrong",
-      requestId: req.id
-    }
+    error: { code, message, requestId: req.id }
   });
 }
 

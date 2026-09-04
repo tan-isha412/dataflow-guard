@@ -8,16 +8,37 @@
     {
       "name": "api",
       "image": "<ECR_REPO_URL>/dataflow-guardian-api:latest",
+      "essential": true,
       "portMappings": [{ "containerPort": 5000, "protocol": "tcp" }],
-      "secrets": [
-        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:...:DATABASE_URL::" },
-        { "name": "JWT_ACCESS_SECRET", "valueFrom": "arn:aws:secretsmanager:...:JWT_ACCESS_SECRET::" }
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "API_PORT", "value": "5000" },
+        { "name": "API_PREFIX", "value": "/api/v1" },
+        { "name": "REDIS_HOST", "value": "<ELASTICACHE_PRIMARY_ENDPOINT>" },
+        { "name": "REDIS_PORT", "value": "6379" },
+        { "name": "REDIS_TLS", "value": "true" },
+        { "name": "ALLOWED_ORIGINS", "value": "https://<DOMAIN_NAME>" },
+        { "name": "JWT_ACCESS_EXPIRES_IN", "value": "15m" },
+        { "name": "JWT_REFRESH_EXPIRES_IN", "value": "7d" }
       ],
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:dataflow-guardian/app-secrets:DATABASE_URL::" },
+        { "name": "JWT_ACCESS_SECRET", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:dataflow-guardian/app-secrets:JWT_ACCESS_SECRET::" },
+        { "name": "JWT_REFRESH_SECRET", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:dataflow-guardian/app-secrets:JWT_REFRESH_SECRET::" },
+        { "name": "REDIS_PASSWORD", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:dataflow-guardian/app-secrets:REDIS_AUTH_TOKEN::" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "node -e \"fetch('http://localhost:5000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 15
+      },
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
           "awslogs-group": "/ecs/dataflow-guardian-api",
-          "awslogs-region": "us-east-1",
+          "awslogs-region": "<REGION>",
           "awslogs-stream-prefix": "api"
         }
       }
