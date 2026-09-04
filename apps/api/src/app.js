@@ -53,8 +53,8 @@ app.use(requestLogger);
 // own database-backed checks), so losing it temporarily during a Redis
 // outage is an acceptable degradation, not a silent bypass of the
 // actual security boundary.
-app.use(`${env.API_PREFIX}/auth/login`, rateLimit({ windowSeconds: 60, max: 10, scope: "auth-login" }));
-app.use(`${env.API_PREFIX}`, rateLimit({ windowSeconds: 60, max: 100, scope: "general" }));
+app.use(`${env.API_PREFIX}/auth/login`, rateLimit({ windowSeconds: 60, max: env.RATE_LIMIT_LOGIN_MAX, scope: "auth-login" }));
+app.use(`${env.API_PREFIX}`, rateLimit({ windowSeconds: 60, max: env.RATE_LIMIT_GENERAL_MAX, scope: "general" }));
 
 app.use(`${env.API_PREFIX}/approvals`, approvalsRoutes);
 app.use(`${env.API_PREFIX}/audit`, auditRoutes);

@@ -24,7 +24,16 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(1, "JWT_REFRESH_SECRET is required"),
   JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
-  ALLOWED_ORIGINS: z.string().default("http://localhost:5173")
+  ALLOWED_ORIGINS: z.string().default("http://localhost:5173"),
+  // middleware/rateLimit.js's two mounted instances (app.js). Defaults
+  // match the values these were hardcoded to before Phase 10 — only an
+  // explicit env var changes production behavior. Made configurable so
+  // a controlled local load test (scripts/loadtest.js) can raise the
+  // ceiling to measure the server's real sustained throughput without
+  // that measurement being dominated by cheap 429 rejections, without
+  // ever touching the security-relevant production default.
+  RATE_LIMIT_GENERAL_MAX: z.coerce.number().default(100),
+  RATE_LIMIT_LOGIN_MAX: z.coerce.number().default(10)
 });
 
 const parsed = envSchema.safeParse(process.env);
