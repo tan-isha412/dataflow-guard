@@ -59,11 +59,11 @@ export function DashboardPage() {
       <div className="dashboard-charts">
         <div>
           <h2>Risk score, last 30 days</h2>
-          <RiskChart data={riskOverTime} />
+          {riskOverTime.length === 0 ? <p>No inspections in the last 30 days yet.</p> : <RiskChart data={riskOverTime} />}
         </div>
         <div>
           <h2>Detections by type</h2>
-          <DataTypesChart data={detectionsByType} />
+          {detectionsByType.length === 0 ? <p>No sensitive data detections recorded yet.</p> : <DataTypesChart data={detectionsByType} />}
         </div>
       </div>
 

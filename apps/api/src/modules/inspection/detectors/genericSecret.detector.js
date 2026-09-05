@@ -5,7 +5,7 @@ import { DATA_TYPES, SENSITIVITY_LEVELS, DETECTION_METHODS } from "@dataflow-gua
 // tokens, which have a fixed prefix). Deliberately lower confidence —
 // this one guesses based on the LABEL next to a value, not the value's
 // own shape, so it's more prone to false positives.
-const GENERIC_SECRET_PATTERN = /\b(?:api[_-]?key|secret|token|password)\s*[:=]\s*["']?([A-Za-z0-9_\-]{8,})["']?/gi;
+const GENERIC_SECRET_PATTERN = /\b(?:api[_-]?key|secret|token|password)\s*[:=]\s*["']?([A-Za-z0-9_-]{8,})["']?/gi;
 
 export function detectGenericSecrets(text) {
   const detections = [];

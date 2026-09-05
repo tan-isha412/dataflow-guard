@@ -1,7 +1,6 @@
 import { DATA_TYPES } from "@dataflow-guardian/shared";
 import { fullReplacementStrategy } from "./strategies/fullReplacement.js";
 import { partialMaskStrategy } from "./strategies/partialMask.js";
-import { hashStrategy } from "./strategies/hash.js";
 
 // Which strategy applies to which data type. Anything not listed
 // falls back to full replacement — the safest default.

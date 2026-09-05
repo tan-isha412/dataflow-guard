@@ -14,12 +14,13 @@ const columns = [
 ];
 
 export function DestinationsPage() {
-  const { data: destinations = [], isLoading } = useQuery({
+  const { data: destinations = [], isLoading, isError } = useQuery({
     queryKey: ["destinations"],
     queryFn: listDestinations
   });
 
   if (isLoading) return <p>Loading destinations...</p>;
+  if (isError) return <p>Could not load destinations. Try refreshing.</p>;
 
   return (
     <div>
