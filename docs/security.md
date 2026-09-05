@@ -200,30 +200,37 @@ Ran `npm audit --workspaces` against the real, installed tree — 18
 advisories (3 critical, 5 high, 10 moderate), each triaged by actual
 reachability rather than severity label alone:
 
-- **`qs` (moderate, DoS) — real, reachable in production.** Not via
-  body-parsing (`app.js` only uses `express.json()`), but Express 4's
-  default `query parser` setting uses the bundled `qs` to parse
-  `req.query` on *every* request, so a malformed query string is a
-  genuine unauthenticated attack surface. A non-breaking fix exists
-  (`qs@^6.16.0`). **Not applied in this session** — the sandbox's
-  proxied npm/registry access proved unreliable for dependency
-  resolution across five attempts, and one `npm install --force`
-  attempt corrupted `package-lock.json` (collapsed ~800 lines to 6
-  while `node_modules` stayed on the old version); reverted immediately
-  via `git checkout` rather than commit a broken lockfile. Remediation:
-  a one-line root `package.json` `"overrides": {"qs": "^6.16.0"}` +
-  `npm install` in an environment with reliable registry access, then
-  re-run the full suite. **Marked NOT VERIFIED / NOT FIXED — do not
-  assume this is resolved.**
+- **`qs` (moderate, DoS) — real, reachable in production. FIXED.** Not
+  via body-parsing (`app.js` only uses `express.json()`), but Express
+  4's default `query parser` setting uses the bundled `qs` to parse
+  `req.query` on *every* request, so a malformed query string was a
+  genuine unauthenticated attack surface. First attempted in a
+  network-restricted sandbox where dependency resolution proved
+  unreliable across five attempts (one `npm install --force` even
+  corrupted `package-lock.json`, reverted immediately rather than
+  commit a broken lockfile — left as an explicit NOT VERIFIED finding
+  at the time). Re-attempted in a follow-up session with reliable
+  network access: added a root `package.json` `"overrides": {"qs":
+  "^6.16.0"}`, then a full clean reinstall (`rm -rf node_modules
+  package-lock.json && npm install`) — a plain `npm install` against
+  the already-populated `node_modules` from the first attempt kept
+  silently no-op'ing the override (an npm behavior, not a network
+  issue), so the clean wipe was necessary either way. Verified: `npm ls
+  qs --workspaces --all` shows `qs@6.16.0` everywhere with no
+  `invalid`/`overridden` markers, `npm audit` no longer lists `qs` at
+  all, and the full suite (140/140 API, 113/113 extension, 1/1 worker)
+  plus a fresh browser E2E run (`prompt-interception.manual.cjs`, all
+  assertions) pass with the new lockfile.
 - **`tar` via `bcrypt`→`@mapbox/node-pre-gyp` (critical, several
-  arbitrary file write/symlink CVEs) — build-time only.** The
-  vulnerable code runs inside node-pre-gyp's postinstall step
-  (downloading bcrypt's prebuilt binary), never at runtime. Real
+  arbitrary file write/symlink CVEs) — build-time only. Still NOT
+  fixed.** The vulnerable code runs inside node-pre-gyp's postinstall
+  step (downloading bcrypt's prebuilt binary), never at runtime. Real
   exposure is supply-chain trust in the registry at install time, not
   a live attack surface. `bcrypt`'s own API (`hash`/`compare`,
   `password.util.js`) is stable across major versions, so a bump to
-  `bcrypt@6` should be compatible; not attempted this session for the
-  same tooling-reliability reason as `qs`.
+  `bcrypt@6` should be compatible; not attempted even in the follow-up
+  session with reliable network — out of scope for that pass, which
+  was scoped narrowly to `qs`.
 - **`react-router`/`react-router-dom` (moderate, open redirect + SSR
   hydration injection) — verified NOT reachable.** `apps/web` is
   client-side-rendered only (no SSR anywhere), so the hydration CVE has

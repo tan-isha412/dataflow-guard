@@ -205,15 +205,23 @@ Stated plainly rather than glossed over — see `docs/security.md` and
 - **A multi-org user's login has no org selector** — `loginUser()`
   picks the first membership; real but narrow impact for the current
   single-org-per-user usage pattern.
-- **One known real dependency vulnerability, not yet fixed**: `qs`
-  (via Express's default query-string parser) has a moderate DoS
-  advisory with a known non-breaking fix that couldn't be safely
-  applied in this project's own development sandbox — see
-  `docs/security.md`'s dependency-audit section for exactly what and
-  why, and the one-line fix once applied elsewhere.
+- **One known real dependency vulnerability, still unfixed**: the
+  `tar`→`bcrypt`→`@mapbox/node-pre-gyp` critical CVE chain — real
+  exposure is limited to install-time supply-chain trust (the
+  vulnerable code runs only inside bcrypt's own binary-download
+  postinstall step, never at request-serving time), but it's still
+  open. (`qs`'s reachable `req.query` DoS, previously the one live
+  production finding here, has since been fixed — bumped to `6.16.0`,
+  verified via `npm audit`/`npm ls` and a full test + browser E2E run.)
+  See `docs/security.md`'s dependency-audit section.
 - **The AWS infrastructure in `infra/aws/` has never been applied to a
   real AWS account** in this project — see `docs/deployment.md`.
-- **Cypress dashboard E2E specs are unexecuted** in this project's own
-  development sandbox (network-restricted); real bugs found in them
-  were fixed by code inspection but not confirmed by an actual run —
-  see `docs/testing.md`.
+- **Cypress dashboard E2E specs are unexecuted.** Real bugs found in
+  them were fixed by code inspection (a missing required support file,
+  an undefined custom command), but Cypress's own binary must download
+  from `download.cypress.io`, which has been blocked in every
+  environment this project has been developed in so far, including one
+  with otherwise-reliable npm registry access (confirmed again while
+  fixing `qs` above — the `qs` fix itself needed `CYPRESS_INSTALL_BINARY=0`
+  to let `npm install` complete at all, since Cypress's postinstall
+  step crashes the whole install otherwise) — see `docs/testing.md`.

@@ -249,6 +249,50 @@ these two Cypress specs as passing.** The fix is real and should pass
 in any environment with normal internet access; that claim itself is
 untested here.
 
+Re-confirmed in a later follow-up session that otherwise had reliable
+npm registry access (used to fix the `qs` dependency — see below):
+`download.cypress.io` specifically was still unreachable there too
+(same `ECONNRESET` failure), and Cypress's own postinstall script
+throws uncaught on that failure, which crashes the *entire* `npm
+install` for the whole monorepo, not just `apps/web`. Worked around
+with `CYPRESS_INSTALL_BINARY=0 npm install` (Cypress's own documented
+env var for skipping the binary download) to let the rest of the
+dependency tree install — this unblocks everything else but does not
+change the Cypress-execution conclusion above; it's still NOT VERIFIED
+by an actual run.
+
+## Dependency fix follow-up: `qs` (previously NOT VERIFIED, now fixed)
+
+A later session with reliable npm registry access fixed the one real,
+production-reachable dependency finding from this phase's audit (see
+`docs/security.md`'s dependency section for the original finding and
+reachability analysis). What made it work this time, precisely:
+
+- A plain `npm install` after adding the root `package.json`
+  `"overrides": {"qs": "^6.16.0"}` **silently no-op'ed** against the
+  already-installed `node_modules` — this is an npm behavior (treating
+  an already-satisfied-looking tree as "up to date"), not a network
+  problem, and it's the same behavior that made the first attempt in
+  this phase look like a dead end.
+- The real fix needed a full clean reinstall: `rm -rf node_modules
+  package-lock.json && npm install`. That crashed immediately on
+  Cypress's postinstall trying to reach `download.cypress.io` (see
+  above) — worked around with `CYPRESS_INSTALL_BINARY=0`.
+- After a clean install, `@prisma/client` needed regenerating
+  (`npx prisma generate`) since it's a generated artifact tied to
+  `node_modules`, not committed to the repo.
+
+Verified: `npm ls qs --workspaces --all` shows `qs@6.16.0` everywhere
+with no `invalid`/`overridden` markers; `npm audit --workspaces` no
+longer lists a `qs` advisory at all (15 remaining, down from 18 — all
+previously triaged as devDependency-only or build-time-only, see
+`docs/security.md`); the full suite (140/140 API, 113/113 extension,
+1/1 worker) passes, including two consecutive back-to-back runs; and a
+fresh run of `prompt-interception.manual.cjs` in a real Chromium
+browser (rebuilt extension, live backend) — all assertions passed,
+confirming the dependency bump didn't regress the one thing this whole
+project actually protects.
+
 ## Performance — real measured numbers
 
 `scripts/benchmark.js`, 500 iterations + 20 warmup (discarded) per
