@@ -1,5 +1,37 @@
 import { AppError } from "./errorHandler.js";
 import { redisClient } from "../config/redis.js";
+import { verifyAccessToken } from "../modules/auth/jwt.util.js";
+
+// Real bug found during the Phase 11 finishing pass: this middleware is
+// mounted in app.js BEFORE every router (it has to be — a rate limiter
+// that ran after the route handler already did its work couldn't ever
+// block anything), but req.auth is only ever set by requireAuth, which
+// each individual router applies to ITSELF (router.use(requireAuth) —
+// see orgs.routes.js etc.), further down the middleware stack. That
+// means req.auth was ALWAYS undefined at the point this file read it —
+// the "general" scope has been keyed by req.ip for every request,
+// authenticated or not, since it was first mounted, never by
+// organizationId as the comment in app.js (and docs/security.md)
+// claimed. Real impact: every organization behind the same egress IP
+// (a shared office network/VPN/NAT — completely normal for a real
+// company) shared ONE budget, and any one of them could exhaust it for
+// everyone else. Fixed below by having this middleware decode the
+// bearer token itself (the exact same verifyAccessToken() requireAuth
+// uses, so there's one source of truth for what a valid token looks
+// like) purely to resolve a stable per-org key — it does NOT enforce
+// anything here; an invalid/expired/missing token just falls back to
+// IP-keying, and requireAuth (downstream) still independently rejects
+// the request on its own terms. This file remains, deliberately, not a
+// security boundary.
+function resolveOrganizationId(req) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) return null;
+  try {
+    return verifyAccessToken(header.slice("Bearer ".length)).organizationId;
+  } catch {
+    return null;
+  }
+}
 
 // The shared redisClient is configured with maxRetriesPerRequest: null
 // (see config/redis.js) so BullMQ jobs keep retrying through a
@@ -30,7 +62,7 @@ function withTimeout(promise, ms) {
 // one was meant to track separately.
 export function rateLimit({ windowSeconds = 60, max = 100, scope = "default" } = {}) {
   return async (req, res, next) => {
-    const key = `ratelimit:${scope}:${req.auth?.organizationId ?? req.ip}`;
+    const key = `ratelimit:${scope}:${resolveOrganizationId(req) ?? req.ip}`;
 
     try {
       const count = await withTimeout(redisClient.incr(key), REDIS_TIMEOUT_MS);

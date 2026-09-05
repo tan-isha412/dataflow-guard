@@ -19,28 +19,37 @@ describe("Login brute-force protection", () => {
     });
   });
 
-  it("returns 429 after enough failed login attempts, before ever accepting the correct password", async () => {
-    let lastStatus;
-    let sawRateLimited = false;
+  it(
+    "returns 429 after enough failed login attempts, before ever accepting the correct password",
+    async () => {
+      let lastStatus;
+      let sawRateLimited = false;
 
-    for (let i = 0; i < 15; i++) {
-      const res = await request(app).post("/api/v1/auth/login").send({ email, password: "wrong-password" });
-      lastStatus = res.status;
-      if (lastStatus === 429) {
-        sawRateLimited = true;
-        expect(res.body.error.code).toBe("RATE_LIMITED");
-        break;
+      // vitest.config.js raises RATE_LIMIT_LOGIN_MAX to 20 for test runs
+      // (production's real default, 10, is untouched — see that file).
+      // Each of these is a REAL bcrypt.compare() against 12 salt rounds
+      // (deliberately slow, by design — password.util.js), not mocked,
+      // so this test gets a longer-than-default timeout below.
+      for (let i = 0; i < 25; i++) {
+        const res = await request(app).post("/api/v1/auth/login").send({ email, password: "wrong-password" });
+        lastStatus = res.status;
+        if (lastStatus === 429) {
+          sawRateLimited = true;
+          expect(res.body.error.code).toBe("RATE_LIMITED");
+          break;
+        }
+        // every attempt before the limiter kicks in must be a real
+        // credential check (401), never anything that looks like success
+        expect(lastStatus).toBe(401);
       }
-      // every attempt before the limiter kicks in must be a real
-      // credential check (401), never anything that looks like success
-      expect(lastStatus).toBe(401);
-    }
 
-    expect(sawRateLimited).toBe(true);
+      expect(sawRateLimited).toBe(true);
 
-    // Even the CORRECT password is rejected once rate-limited — the
-    // limiter doesn't get bypassed by finally guessing right.
-    const finalAttempt = await request(app).post("/api/v1/auth/login").send({ email, password: "correct-password-123" });
-    expect(finalAttempt.status).toBe(429);
-  });
+      // Even the CORRECT password is rejected once rate-limited — the
+      // limiter doesn't get bypassed by finally guessing right.
+      const finalAttempt = await request(app).post("/api/v1/auth/login").send({ email, password: "correct-password-123" });
+      expect(finalAttempt.status).toBe(429);
+    },
+    20000
+  );
 });

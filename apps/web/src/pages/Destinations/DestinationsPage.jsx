@@ -24,7 +24,7 @@ export function DestinationsPage() {
   return (
     <div>
       <h1>Destinations</h1>
-      <Table columns={columns} rows={destinations} rowKey="id" />
+      <Table columns={columns} rows={destinations} rowKey="id" emptyMessage="No destinations seen yet — they appear automatically the first time an employee submits a prompt to one." />
     </div>
   );
 }
