@@ -5,7 +5,12 @@ import { PolicyConditionBuilder } from "./PolicyConditionBuilder.jsx";
 import { Input } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 
-const ACTIONS = ["ALLOW", "REDACT", "BLOCK", "REQUIRE_APPROVAL"];
+const ACTIONS = [
+  { value: "ALLOW", label: "Allow" },
+  { value: "REDACT", label: "Redact" },
+  { value: "BLOCK", label: "Block" },
+  { value: "REQUIRE_APPROVAL", label: "Require approval" }
+];
 
 export function PolicyForm({ onSuccess }) {
   const [name, setName] = useState("");
@@ -33,7 +38,7 @@ export function PolicyForm({ onSuccess }) {
       <Input label="Priority" type="number" value={priority} onChange={(e) => setPriority(e.target.value)} />
       <label>Action</label>
       <select value={action} onChange={(e) => setAction(e.target.value)}>
-        {ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+        {ACTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
       </select>
       <PolicyConditionBuilder conditions={conditions} onChange={setConditions} />
       <Button type="submit" disabled={mutation.isPending}>

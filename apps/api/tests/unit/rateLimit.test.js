@@ -35,7 +35,11 @@ describe("rateLimit — Redis outage behavior", () => {
   it("fails OPEN within a bounded time when Redis never responds, instead of hanging forever", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const middleware = rateLimit({ windowSeconds: 60, max: 100, scope: "test" });
-    const req = { auth: { organizationId: "org-1" }, ip: "127.0.0.1" };
+    // A real Express req has no `.auth` at this point in the middleware
+    // stack (see rateLimit.js's own comment on resolveOrganizationId) —
+    // an empty headers object (no Authorization) is what an
+    // unauthenticated/pre-auth request actually looks like here.
+    const req = { headers: {}, ip: "127.0.0.1" };
     const res = fakeRes();
 
     const next = vi.fn();

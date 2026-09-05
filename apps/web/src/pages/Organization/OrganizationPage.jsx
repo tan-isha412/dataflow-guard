@@ -88,7 +88,19 @@ export function OrganizationPage() {
       </Card>
 
       <Card title="Members">
-        {isLoading ? <p>Loading members...</p> : <Table columns={memberColumns(isAdmin, (userId, role) => roleMutation.mutate({ userId, role }))} rows={members} rowKey="id" />}
+        {isLoading ? (
+          <p>Loading members...</p>
+        ) : (
+          <Table
+            columns={memberColumns(isAdmin, (userId, role) => roleMutation.mutate({ userId, role }))}
+            rows={members}
+            rowKey="id"
+            emptyMessage="No members yet."
+          />
+        )}
+        {roleMutation.isError && (
+          <p className="form-error">{roleMutation.error?.response?.data?.error?.message ?? "Could not change that member's role."}</p>
+        )}
 
         {isAdmin && (
           <form onSubmit={handleInvite} className="invite-form">

@@ -1,20 +1,26 @@
 // Generic — columns describe WHAT to render, rows are just data.
 // Every future list page (audit logs, approvals, policies) reuses
 // this instead of writing a new <table> each time.
-export function Table({ columns, rows, rowKey }) {
+export function Table({ columns, rows, rowKey, emptyMessage = "Nothing here yet." }) {
   return (
     <table>
       <thead>
         <tr>{columns.map((col) => <th key={col.key}>{col.label}</th>)}</tr>
       </thead>
       <tbody>
-        {rows.map((row) => (
-          <tr key={row[rowKey]}>
-            {columns.map((col) => (
-              <td key={col.key}>{col.render ? col.render(row) : row[col.key]}</td>
-            ))}
+        {rows.length === 0 ? (
+          <tr>
+            <td colSpan={columns.length} className="table-empty-state">{emptyMessage}</td>
           </tr>
-        ))}
+        ) : (
+          rows.map((row) => (
+            <tr key={row[rowKey]}>
+              {columns.map((col) => (
+                <td key={col.key}>{col.render ? col.render(row) : row[col.key]}</td>
+              ))}
+            </tr>
+          ))
+        )}
       </tbody>
     </table>
   );
