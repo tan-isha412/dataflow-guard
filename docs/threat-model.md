@@ -251,21 +251,31 @@ document does not claim protection the system doesn't provide.
   ships malicious code, or a known vulnerability in a dependency is
   exploited.
 - **Attack path**: either a supply-chain attack on a package this
-  project depends on, or exploitation of one of the real CVEs found in
-  this phase's dependency audit (`docs/security.md`'s dependency
-  section — most concretely, `qs`'s reachable DoS via `req.query`).
+  project depends on, or exploitation of a known vulnerability in a
+  dependency (this phase's audit — `docs/security.md`'s dependency
+  section — found `qs`'s reachable DoS via `req.query` to be the one
+  genuinely live production finding; see "Mitigation" below for its
+  status).
 - **Mitigation**: a committed `package-lock.json` pins exact resolved
   versions (reproducible installs); `npm audit` was run against the
   real tree this phase and every finding was triaged by actual
   reachability, not just severity label, so effort went toward the one
   finding that's genuinely live in production rather than the ten that
-  are devDependency-only.
-- **Residual risk**: real and explicitly unresolved — the `qs` fix
-  identified in `docs/security.md` was **not applied** this session
-  (sandbox tooling instability made the attempt itself risky; reverted
-  rather than commit a broken lockfile). This is the single most
-  concrete open item in this entire threat model: **do not report this
-  as fixed.**
+  are devDependency-only. That finding (`qs`) has since been fixed —
+  bumped to `6.16.0` via a root `package.json` override, verified with
+  `npm ls`/`npm audit` showing no remaining `qs` advisory and the full
+  test suite plus a fresh browser E2E run passing against the new
+  lockfile.
+- **Residual risk**: the `tar`→`bcrypt`→`@mapbox/node-pre-gyp` critical
+  CVE chain (`docs/security.md`) remains unfixed — real exposure is
+  limited to install-time supply-chain trust (the vulnerable code never
+  runs at request-serving time), but it is still an open item, not a
+  closed one. More broadly, a supply-chain compromise of any dependency
+  this project trusts (direct or transitive) is not something a
+  version pin defends against once that specific version is itself
+  compromised — `npm audit` catches known, disclosed vulnerabilities in
+  versions already flagged, not a novel compromise of a trusted
+  package.
 
 ---
 
