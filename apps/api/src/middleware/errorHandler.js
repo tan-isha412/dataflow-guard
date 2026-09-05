@@ -10,8 +10,12 @@ export class AppError extends Error {
 
 // Must be registered LAST in app.js — Express only calls error middleware
 // (4-arg functions) when something upstream calls next(err) or throws
-// inside an async handler wrapped correctly.
-export function errorHandler(err, req, res, next) {
+// inside an async handler wrapped correctly. The 4th param is required
+// for Express to even recognize this as error-handling middleware
+// (it's a function-arity check, not a naming convention) even though
+// it's never called here — named _next, not next, so the linter's
+// unused-var check doesn't flag a parameter Express itself requires.
+export function errorHandler(err, req, res, _next) {
   const statusCode = err.statusCode ?? 500;
 
   if (statusCode === 500) {

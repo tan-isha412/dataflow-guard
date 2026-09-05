@@ -22,7 +22,7 @@ const columns = [
 
 export function PoliciesPage() {
   const [isModalOpen, setModalOpen] = useState(false);
-  const { data: policies = [], isLoading } = useQuery({
+  const { data: policies = [], isLoading, isError } = useQuery({
     queryKey: ["policies"],
     queryFn: listPolicies
   });
@@ -34,7 +34,13 @@ export function PoliciesPage() {
         <Button onClick={() => setModalOpen(true)}>+ New policy</Button>
       </div>
 
-      {isLoading ? <p>Loading...</p> : <Table columns={columns} rows={policies} rowKey="id" emptyMessage="No policies yet — create one to start enforcing rules on what employees can send." />}
+      {isError ? (
+        <p>Could not load policies. Try refreshing.</p>
+      ) : isLoading ? (
+        <p>Loading...</p>
+      ) : (
+        <Table columns={columns} rows={policies} rowKey="id" emptyMessage="No policies yet — create one to start enforcing rules on what employees can send." />
+      )}
 
       <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="Create policy">
         <PolicyForm onSuccess={() => setModalOpen(false)} />

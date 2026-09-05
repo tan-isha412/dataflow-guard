@@ -44,7 +44,11 @@ app.use(requestLogger);
 // 2. A general limit on every other route, keyed by organizationId
 //    once authenticated (falling back to IP before that, e.g.
 //    /auth/register) — abuse-resistance for the API as a whole, not
-//    specific to any one endpoint.
+//    specific to any one endpoint. Both limiters are mounted here,
+//    before any router — see rateLimit.js's own resolveOrganizationId
+//    comment for why that means this middleware has to resolve the
+//    org itself rather than reading req.auth (which router-level
+//    requireAuth hasn't set yet at this point in the stack).
 //
 // Both fail OPEN if Redis itself is down (see rateLimit.js's own
 // comment) — deliberately: a rate limiter is not the security-critical
